@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>【史诗海难】巨型战列舰·孤军陷入暴风雨与午夜深渊</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #020408; font-family: 'Cinzel', 'Georgia', 'Songti SC', 'SimSun', serif; }
+    #canvas-container { width: 100%; height: 100%; position: absolute; left: 0; top: 0; z-index: 1; }
+    
+    /* 宽银幕黑边 */
+    .cinemascope-top, .cinemascope-bottom {
+      position: absolute; left: 0; width: 100%; height: 7vh; background: #000; z-index: 15; pointer-events: none;
+    }
+    .cinemascope-top { top: 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .cinemascope-bottom { bottom: 0; border-top: 1px solid rgba(255,255,255,0.06); }
+
+    .vignette-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      box-shadow: inset 0 0 140px rgba(0,0,0,0.85), inset 0 0 280px rgba(0,0,0,0.95);
+      pointer-events: none; z-index: 12;
+    }
+
+    /* 镜头水滴雨丝暗角特效 */
+    .lens-droplets {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 13; opacity: 0; transition: opacity 1.5s ease;
+      background: radial-gradient(circle at 18% 28%, rgba(255,255,255,0.18) 1.5px, transparent 18px),
+                  radial-gradient(circle at 72% 62%, rgba(255,255,255,0.15) 2.5px, transparent 24px),
+                  radial-gradient(circle at 40% 80%, rgba(255,255,255,0.2) 2px, transparent 15px),
+                  radial-gradient(circle at 82% 20%, rgba(255,255,255,0.12) 3px, transparent 30px);
+    }
+
+    /* 闪电全屏白闪 */
+    #lightning-flash {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #eef6ff; opacity: 0; pointer-events: none; z-index: 14;
+      transition: opacity 0.04s ease-out;
+    }
+
+    /* 电影史诗字幕 */
+    #subtitle-container {
+      position: absolute; bottom: 8.5vh; left: 50%; transform: translateX(-50%);
+      width: 90%; max-width: 980px; text-align: center; z-index: 20; pointer-events: none;
+    }
+    #chapter-badge {
+      display: inline-block; font-size: 11px; text-transform: uppercase; letter-spacing: 4px;
+      color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.35); padding: 4px 14px;
+      border-radius: 20px; background: rgba(15, 23, 42, 0.7); margin-bottom: 12px;
+      backdrop-filter: blur(6px);
+    }
+    #subtitle-text {
+      color: #f1f5f9; font-size: clamp(15px, 2.1vw, 23px); letter-spacing: 3px; line-height: 1.6;
+      text-shadow: 0 0 16px rgba(0, 0, 0, 0.95), 0 2px 5px rgba(0, 0, 0, 0.95), 0 0 35px rgba(56, 189, 248, 0.45);
+      transition: opacity 0.8s ease-in-out, transform 0.8s ease-out;
+      opacity: 0; transform: translateY(6px); font-weight: 500;
+    }
+
+    /* 仪表盘 & 交互控制面板 (海军黄铜/暗黑战损风格) */
+    #hud-panel {
+      position: absolute; top: 8vh; right: 24px; z-index: 25;
+      background: rgba(10, 16, 26, 0.82); border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-radius: 12px; padding: 16px 20px; color: #cbd5e1;
+      width: 290px; box-shadow: 0 10px 35px rgba(0, 0, 0, 0.8);
+      transition: all 0.3s ease;
+    }
+    .hud-title {
+      font-size: 12px; font-weight: 700; letter-spacing: 2px; color: #e2e8f0;
+      text-transform: uppercase; border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .hud-row {
+      display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; color: #94a3b8;
+    }
+    .hud-val { color: #f8fafc; font-family: 'Consolas', monospace; font-weight: 600; }
+    
+    .hud-btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .hud-btn {
+      background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #e2e8f0; font-size: 11px; padding: 8px 4px; border-radius: 6px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      transition: all 0.2s ease;
+    }
+    .hud-btn:hover {
+      background: rgba(51, 65, 85, 0.95); border-color: rgba(255, 255, 255, 0.45);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+    }
+    .hud-btn:active { transform: scale(0.96); }
+    .hud-btn.active {
+      background: #0284c7; border-color: #38bdf8; color: #fff;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.5);
+    }
+
+    /* 底部时间线控制器 */
+    #timeline-panel {
+      position: absolute; bottom: 7.2vh; left: 50%; transform: translateX(-50%);
+      width: min(88%, 760px); z-index: 25; display: flex; flex-direction: column; gap: 6px;
+    }
+    .progress-bar-wrap {
+      width: 100%; height: 6px; background: rgba(255, 255, 255, 0.18); border-radius: 3px;
+      cursor: pointer; position: relative; overflow: hidden; backdrop-filter: blur(3px);
+    }
+    .progress-bar-fill {
+      height: 100%; width: 0%; background: linear-gradient(90deg, #38bdf8, #818cf8, #ef4444);
+      border-radius: 3px; transition: width 0.1s linear;
+    }
+    .timeline-nav {
+      display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #94a3b8;
+    }
+    .chapter-tags { display: flex; gap: 6px; }
+    .ch-btn {
+      background: transparent; border: none; color: #94a3b8; font-size: 10.5px; cursor: pointer;
+      padding: 3px 8px; border-radius: 4px; transition: all 0.2s;
+    }
+    .ch-btn:hover, .ch-btn.active { color: #f8fafc; background: rgba(255,255,255,0.15); font-weight: 600; }
+    
+    /* 首次加载全屏遮罩 (Web Audio 解锁) */
+    #start-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at center, rgba(15, 23, 42, 0.88) 0%, rgba(2, 6, 23, 0.98) 100%);
+      z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #f1f5f9; backdrop-filter: blur(16px); transition: opacity 1.2s ease;
+    }
+    .hero-title {
+      font-size: clamp(26px, 4.4vw, 50px); font-weight: 800; letter-spacing: 6px;
+      text-transform: uppercase; margin-bottom: 12px; text-align: center;
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 50%, #64748b 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero-sub {
+      font-size: clamp(13px, 1.5vw, 17px); color: #94a3b8; letter-spacing: 3px;
+      margin-bottom: 34px; text-align: center; max-width: 680px; line-height: 1.7; padding: 0 16px;
+    }
+    .start-btn {
+      padding: 14px 44px; font-size: 15px; letter-spacing: 4px; font-weight: 600;
+      color: #f8fafc; background: linear-gradient(135deg, rgba(2, 132, 199, 0.8), rgba(15, 23, 42, 0.9));
+      border: 1px solid rgba(147, 197, 253, 0.45); border-radius: 30px;
+      cursor: pointer; box-shadow: 0 0 28px rgba(2, 132, 199, 0.4);
+      transition: all 0.3s ease; text-transform: uppercase;
+    }
+    .start-btn:hover {
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.95), rgba(30, 58, 138, 0.95));
+      box-shadow: 0 0 38px rgba(56, 189, 248, 0.6); transform: translateY(-2px);
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <!-- 电影画幅与视觉覆盖层 -->
+  <div class="cinemascope-top"></div>
+  <div class="cinemascope-bottom"></div>
+  <div class="vignette-overlay"></div>
+  <div class="lens-droplets" id="lens-droplets"></div>
+  <div id="lightning-flash"></div>
+
+  <!-- 3D WebGL 渲染挂载点 -->
+  <div id="canvas-container"></div>
+
+  <!-- 电影叙事字幕 -->
+  <div id="subtitle-container">
+    <div id="chapter-badge">CH. 01 · 序章</div>
+    <div id="subtitle-text">1943年10月 · 气压计骤降，我们正在驶入不可预测的百慕大三角……</div>
+  </div>
+
+  <!-- 战舰仪表盘 & 交互控制 -->
+  <div id="hud-panel">
+    <div class="hud-title">
+      <span>HMS LEVIATHAN · BB-71</span>
+      <span id="hud-status" style="color:#38bdf8; font-size:10px;">STANDBY</span>
+    </div>
+    <div class="hud-row"><span>航速 / 动力:</span><span class="hud-val" id="hud-speed">18.5 KTS (CRUISE)</span></div>
+    <div class="hud-row"><span>纵摇 / 侧倾:</span><span class="hud-val" id="hud-tilt">+2.1° / -1.2°</span></div>
+    <div class="hud-row"><span>海浪烈度 / 风速:</span><span class="hud-val" id="hud-weather">蒲氏 4 级 (16 KTS)</span></div>
+    <div class="hud-row"><span>气压计读数:</span><span class="hud-val" id="hud-baro">1012 hPa (骤降中)</span></div>
+    
+    <div class="hud-btn-group">
+      <button class="hud-btn" id="btn-horn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        汽笛 / 雾钟
+      </button>
+      <button class="hud-btn" id="btn-lightning">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        雷击测试
+      </button>
+      <button class="hud-btn" id="btn-play">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        暂停/播放
+      </button>
+      <button class="hud-btn" id="btn-camera">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6z"/></svg>
+        自由视角
+      </button>
+    </div>
+  </div>
+
+  <!-- 底部时间线进度条 -->
+  <div id="timeline-panel">
+    <div class="progress-bar-wrap" id="progress-wrap">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="timeline-nav">
+      <div class="chapter-tags">
+        <button class="ch-btn active" data-time="0">序章:暗流涌动</button>
+        <button class="ch-btn" data-time="18">转折:风暴降临</button>
+        <button class="ch-btn" data-time="36">升温:雷霆万钧</button>
+        <button class="ch-btn" data-time="55">高潮:疯狗浪</button>
+        <button class="ch-btn" data-time="75">终章:风暴眼</button>
+      </div>
+      <div id="timeline-time">00:00 / 01:30</div>
+    </div>
+  </div>
+
+  <!-- 首次进入启动遮罩 -->
+  <div id="start-overlay">
+    <h1 class="hero-title">孤军陷入午夜深渊</h1>
+    <p class="hero-sub">《怒海争锋》风格 · 90秒巨型战列舰海难史诗实景巡航<br>轻量着色器海浪法线渲染 · Web Audio 物理环境音级联生成</p>
+    <button class="start-btn" id="start-btn">开启史诗航程 (启封音效)</button>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. WEB AUDIO API 物理级联环境音合成引擎 (完全纯代码，无任何外部音频资源)
+       ========================================================================= */
+    class NavalAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.isReady = false;
+
+        this.masterGain = null;
+        this.windGain = null;
+        this.rainGain = null;
+        this.engineGain = null;
+        this.steamGain = null;
+
+        this.windFilter = null;
+        this.rainFilter = null;
+        this.lastCreakTime = 0;
+      }
+
+      init() {
+        if (this.isReady) return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+
+        // 主动态压缩器（营造电影厚重声底并防削波）
+        this.compressor = this.ctx.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
+        this.compressor.knee.setValueAtTime(30, this.ctx.currentTime);
+        this.compressor.ratio.setValueAtTime(12, this.ctx.currentTime);
+        this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+        this.compressor.release.setValueAtTime(0.25, this.ctx.currentTime);
+
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+        this.masterGain.connect(this.compressor);
+        this.compressor.connect(this.ctx.destination);
+
+        this.createWindLayer();
+        this.createRainLayer();
+        this.createEngineLayer();
+        this.createSteamLayer();
+
+        this.isReady = true;
+      }
+
+      // 生成粉红噪声缓冲区（用于低频狂风与深海涌浪呼啸）
+      createPinkNoiseBuffer(duration = 5) {
+        const bufferSize = this.ctx.sampleRate * duration;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+          b6 = white * 0.115926;
+        }
+        return buffer;
+      }
+
+      // 狂风噪声层
+      createWindLayer() {
+        const pinkBuffer = this.createPinkNoiseBuffer(6);
+        const noiseSource = this.ctx.createBufferSource();
+        noiseSource.buffer = pinkBuffer;
+        noiseSource.loop = true;
+
+        this.windFilter = this.ctx.createBiquadFilter();
+        this.windFilter.type = 'lowpass';
+        this.windFilter.frequency.setValueAtTime(320, this.ctx.currentTime);
+        this.windFilter.Q.setValueAtTime(3.0, this.ctx.currentTime);
+
+        this.windGain = this.ctx.createGain();
+        this.windGain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+
+        noiseSource.connect(this.windFilter);
+        this.windFilter.connect(this.windGain);
+        this.windGain.connect(this.masterGain);
+        noiseSource.start(0);
+      }
+
+      // 暴雨噪声层
+      createRainLayer() {
+        const bufferSize = this.ctx.sampleRate * 4;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * 0.25;
+        }
+
+        const rainSource = this.ctx.createBufferSource();
+        rainSource.buffer = buffer;
+        rainSource.loop = true;
+
+        this.rainFilter = this.ctx.createBiquadFilter();
+        this.rainFilter.type = 'bandpass';
+        this.rainFilter.frequency.setValueAtTime(1400, this.ctx.currentTime);
+        this.rainFilter.Q.setValueAtTime(1.2, this.ctx.currentTime);
+
+        this.rainGain = this.ctx.createGain();
+        this.rainGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+        rainSource.connect(this.rainFilter);
+        this.rainFilter.connect(this.rainGain);
+        this.rainGain.connect(this.masterGain);
+        rainSource.start(0);
+      }
+
+      // 战舰重型蒸汽轮机沉闷震颤 (46Hz + 78Hz)
+      createEngineLayer() {
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(46, this.ctx.currentTime);
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(78, this.ctx.currentTime);
+
+        const engineFilter = this.ctx.createBiquadFilter();
+        engineFilter.type = 'lowpass';
+        engineFilter.frequency.setValueAtTime(110, this.ctx.currentTime);
+
+        this.engineGain = this.ctx.createGain();
+        this.engineGain.gain.setValueAtTime(0.22, this.ctx.currentTime);
+
+        osc1.connect(engineFilter);
+        osc2.connect(engineFilter);
+        engineFilter.connect(this.engineGain);
+        this.engineGain.connect(this.masterGain);
+
+        osc1.start(0);
+        osc2.start(0);
+      }
+
+      // 蒸汽安全阀释压白烟音
+      createSteamLayer() {
+        const bufferSize = this.ctx.sampleRate * 2;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * 0.3;
+        }
+
+        const steamSource = this.ctx.createBufferSource();
+        steamSource.buffer = buffer;
+        steamSource.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(1800, this.ctx.currentTime);
+
+        this.steamGain = this.ctx.createGain();
+        this.steamGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+        steamSource.connect(filter);
+        filter.connect(this.steamGain);
+        this.steamGain.connect(this.masterGain);
+        steamSource.start(0);
+      }
+
+      // 随剧情实时调节环境音通道参量
+      updateTimelineAudio(time, stormLevel, stageIndex) {
+        if (!this.isReady) return;
+        const t = this.ctx.currentTime;
+
+        if (stageIndex === 0) { // 序章
+          this.windGain.gain.setTargetAtTime(0.18, t, 0.5);
+          this.windFilter.frequency.setTargetAtTime(320, t, 0.5);
+          this.rainGain.gain.setTargetAtTime(0.0, t, 0.5);
+          this.engineGain.gain.setTargetAtTime(0.25, t, 0.5);
+          this.steamGain.gain.setTargetAtTime(0.0, t, 0.5);
+        } else if (stageIndex === 1) { // 暴雨
+          this.windGain.gain.setTargetAtTime(0.45, t, 0.5);
+          this.windFilter.frequency.setTargetAtTime(750, t, 0.5);
+          this.rainGain.gain.setTargetAtTime(0.55, t, 0.5);
+          this.rainFilter.frequency.setTargetAtTime(1500, t, 0.5);
+          this.engineGain.gain.setTargetAtTime(0.35, t, 0.5);
+          this.steamGain.gain.setTargetAtTime(0.0, t, 0.5);
+        } else if (stageIndex === 2) { // 雷霆万钧
+          this.windGain.gain.setTargetAtTime(0.75, t, 0.5);
+          this.windFilter.frequency.setTargetAtTime(1200, t, 0.5);
+          this.rainGain.gain.setTargetAtTime(0.7, t, 0.5);
+          this.engineGain.gain.setTargetAtTime(0.45, t, 0.5);
+          this.steamGain.gain.setTargetAtTime(0.0, t, 0.5);
+        } else if (stageIndex === 3) { // 疯狗浪冲击
+          this.windGain.gain.setTargetAtTime(0.95, t, 0.3);
+          this.windFilter.frequency.setTargetAtTime(1900, t, 0.3);
+          this.rainGain.gain.setTargetAtTime(0.85, t, 0.3);
+          this.engineGain.gain.setTargetAtTime(0.65, t, 0.3);
+          this.steamGain.gain.setTargetAtTime(0.0, t, 0.5);
+        } else if (stageIndex === 4) { // 风暴眼
+          this.windGain.gain.setTargetAtTime(0.12, t, 1.2);
+          this.windFilter.frequency.setTargetAtTime(260, t, 1.2);
+          this.rainGain.gain.setTargetAtTime(0.02, t, 0.8);
+          this.engineGain.gain.setTargetAtTime(0.2, t, 1.0);
+          this.steamGain.gain.setTargetAtTime(0.35, t, 0.8); // 蒸汽长鸣释放
+        }
+      }
+
+      // 闪电与远雷合成
+      playThunder(isHuge = false) {
+        if (!this.isReady) return;
+        const now = this.ctx.currentTime;
+
+        // 1. 锐利电弧瞬间爆音
+        const snap = this.ctx.createOscillator();
+        const snapGain = this.ctx.createGain();
+        snap.type = 'square';
+        snap.frequency.setValueAtTime(140, now);
+        snap.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+        snapGain.gain.setValueAtTime(isHuge ? 0.7 : 0.4, now);
+        snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        snap.connect(snapGain);
+        snapGain.connect(this.masterGain);
+        snap.start(now);
+        snap.stop(now + 0.16);
+
+        // 2. 滚滚低通雷暴轰鸣
+        const duration = isHuge ? 4.5 : 3.0;
+        const thunderBuffer = this.createPinkNoiseBuffer(duration);
+        const source = this.ctx.createBufferSource();
+        source.buffer = thunderBuffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(280, now + 0.05);
+        filter.frequency.exponentialRampToValueAtTime(70, now + duration);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(isHuge ? 0.95 : 0.65, now + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        // 次重低音振荡器 (32Hz 震击地面胸腔感)
+        const subOsc = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        subOsc.type = 'sine';
+        subOsc.frequency.setValueAtTime(isHuge ? 32 : 45, now + 0.08);
+        subOsc.frequency.linearRampToValueAtTime(24, now + 1.2);
+        subGain.gain.setValueAtTime(isHuge ? 0.8 : 0.45, now + 0.08);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        subOsc.connect(subGain);
+        subGain.connect(this.masterGain);
+
+        source.start(now + 0.05);
+        source.stop(now + duration + 0.1);
+        subOsc.start(now + 0.08);
+        subOsc.stop(now + 2.2);
+      }
+
+      // 钢板抗压呻吟扭曲声 (FM 调频合成)
+      playMetalCreak() {
+        if (!this.isReady) return;
+        const now = this.ctx.currentTime;
+        if (now - this.lastCreakTime < 3.5) return;
+        this.lastCreakTime = now;
+
+        const carrier = this.ctx.createOscillator();
+        const modulator = this.ctx.createOscillator();
+        const modGain = this.ctx.createGain();
+        const creakGain = this.ctx.createGain();
+
+        carrier.type = 'sawtooth';
+        modulator.type = 'triangle';
+
+        const baseFreq = 95 + Math.random() * 40;
+        carrier.frequency.setValueAtTime(baseFreq, now);
+        carrier.frequency.exponentialRampToValueAtTime(baseFreq * 0.75, now + 2.5);
+
+        modulator.frequency.setValueAtTime(baseFreq * 1.414, now);
+        modulator.frequency.linearRampToValueAtTime(baseFreq * 0.9, now + 2.5);
+
+        modGain.gain.setValueAtTime(280, now);
+        modGain.gain.linearRampToValueAtTime(20, now + 2.5);
+
+        creakGain.gain.setValueAtTime(0.01, now);
+        creakGain.gain.linearRampToValueAtTime(0.38, now + 0.6);
+        creakGain.gain.exponentialRampToValueAtTime(0.001, now + 2.6);
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(380, now);
+        filter.Q.setValueAtTime(4.0, now);
+
+        modulator.connect(modGain);
+        modGain.connect(carrier.frequency);
+        carrier.connect(filter);
+        filter.connect(creakGain);
+        creakGain.connect(this.masterGain);
+
+        carrier.start(now);
+        modulator.start(now);
+        carrier.stop(now + 2.8);
+        modulator.stop(now + 2.8);
+      }
+
+      // 汽笛与雾钟 (三和音铜管鸣笛 + 铜钟共振)
+      playHornAndBell() {
+        if (!this.isReady) return;
+        const now = this.ctx.currentTime;
+
+        // 战列舰三联装重型蒸汽汽笛 (110Hz, 138.6Hz, 164.8Hz 和弦)
+        const freqs = [110.0, 138.6, 164.8, 220.0];
+        const hornMaster = this.ctx.createGain();
+        hornMaster.gain.setValueAtTime(0.001, now);
+        hornMaster.gain.linearRampToValueAtTime(0.65, now + 0.35);
+        hornMaster.gain.setValueAtTime(0.65, now + 2.2);
+        hornMaster.gain.exponentialRampToValueAtTime(0.001, now + 4.2);
+
+        freqs.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          osc.type = idx % 2 === 0 ? 'sawtooth' : 'triangle';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.linearRampToValueAtTime(freq * 0.99, now + 3.5);
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(450 + idx * 80, now);
+
+          osc.connect(filter);
+          filter.connect(hornMaster);
+          osc.start(now);
+          osc.stop(now + 4.3);
+        });
+
+        // 铜铸雾钟双响 (740Hz + 长衰减)
+        [0.1, 0.9].forEach(delay => {
+          const strikeTime = now + delay;
+          const bellOsc = this.ctx.createOscillator();
+          const bellGain = this.ctx.createGain();
+          bellOsc.type = 'sine';
+          bellOsc.frequency.setValueAtTime(740, strikeTime);
+          bellOsc.frequency.exponentialRampToValueAtTime(720, strikeTime + 1.8);
+
+          bellGain.gain.setValueAtTime(0.35, strikeTime);
+          bellGain.gain.exponentialRampToValueAtTime(0.0001, strikeTime + 2.0);
+
+          bellOsc.connect(bellGain);
+          bellGain.connect(this.masterGain);
+          bellOsc.start(strikeTime);
+          bellOsc.stop(strikeTime + 2.1);
+        });
+
+        hornMaster.connect(this.masterGain);
+      }
+    }
+
+    /* =========================================================================
+       2. THREE.JS 纯代码参数化钢铁装甲战列舰建模 (无任何外部模型)
+       ========================================================================= */
+    function buildEpicBattleship() {
+      const shipGroup = new THREE.Group();
+
+      const hullMaterial = new THREE.MeshStandardMaterial({
+        color: 0x22262c,
+        metalness: 0.85,
+        roughness: 0.38,
+        flatShading: false
+      });
+      const darkArmorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x14181f,
+        metalness: 0.9,
+        roughness: 0.32
+      });
+      const deckMaterial = new THREE.MeshStandardMaterial({
+        color: 0x3a3f47,
+        metalness: 0.45,
+        roughness: 0.72
+      });
+      const gunMaterial = new THREE.MeshStandardMaterial({
+        color: 0x181a1f,
+        metalness: 0.92,
+        roughness: 0.28
+      });
+      const brassMaterial = new THREE.MeshStandardMaterial({
+        color: 0x8a7039,
+        metalness: 0.9,
+        roughness: 0.3
+      });
+      const glassMaterial = new THREE.MeshStandardMaterial({
+        color: 0x93c5fd,
+        emissive: 0x1e3a8a,
+        emissiveIntensity: 0.6,
+        metalness: 0.9,
+        roughness: 0.1
+      });
+
+      // -------------------------------------------------------------
+      // (1) 船体建模 (长150m, 宽22m, 高16m - 飞剪艏、装甲带、巡洋舰艉)
+      // -------------------------------------------------------------
+      const hullGroup = new THREE.Group();
+
+      // 船舯主舱段
+      const midHullGeo = new THREE.BoxGeometry(22, 14, 80);
+      const midHull = new THREE.Mesh(midHullGeo, hullMaterial);
+      midHull.position.y = 1;
+      hullGroup.add(midHull);
+
+      // 船艏飞剪形尖削楔形块 (Bow)
+      const bowShape = new THREE.Shape();
+      bowShape.moveTo(0, -7);
+      bowShape.lineTo(40, -5);
+      bowShape.lineTo(45, 7);
+      bowShape.lineTo(0, 7);
+      bowShape.closePath();
+
+      const bowExtrudeSettings = { steps: 1, depth: 22, bevelEnabled: true, bevelSegments: 3, bevelSize: 0.5, bevelThickness: 0.5 };
+      const bowGeo = new THREE.ExtrudeGeometry(bowShape, bowExtrudeSettings);
+      bowGeo.center();
+      const bowMesh = new THREE.Mesh(bowGeo, hullMaterial);
+      bowMesh.rotation.y = Math.PI / 2;
+      bowMesh.position.set(0, 1.2, 58);
+      hullGroup.add(bowMesh);
+
+      // 船尾流线型收缩段 (Stern)
+      const sternGeo = new THREE.CylinderGeometry(8, 11, 36, 16);
+      sternGeo.scale(1, 1, 0.45);
+      const sternMesh = new THREE.Mesh(sternGeo, hullMaterial);
+      sternMesh.rotation.x = Math.PI / 2;
+      sternMesh.position.set(0, 1.0, -56);
+      hullGroup.add(sternMesh);
+
+      // 两舷外挂防雷装甲隔舱 (Torpedo Blisters)
+      const blisterGeo = new THREE.BoxGeometry(2.5, 7, 72);
+      const portBlister = new THREE.Mesh(blisterGeo, darkArmorMaterial);
+      portBlister.position.set(-11.5, -0.5, 0);
+      const stbdBlister = new THREE.Mesh(blisterGeo, darkArmorMaterial);
+      stbdBlister.position.set(11.5, -0.5, 0);
+      hullGroup.add(portBlister, stbdBlister);
+
+      // 舷侧主排水孔 (Scuppers)
+      const scupperGeo = new THREE.BoxGeometry(0.4, 0.5, 2.5);
+      for (let z = -35; z <= 35; z += 10) {
+        const scupperL = new THREE.Mesh(scupperGeo, darkArmorMaterial);
+        scupperL.position.set(-11.1, 5.5, z);
+        const scupperR = new THREE.Mesh(scupperGeo, darkArmorMaterial);
+        scupperR.position.set(11.1, 5.5, z);
+        hullGroup.add(scupperL, scupperR);
+      }
+
+      // 主装甲甲板 (Upper Armor Deck)
+      const deckGeo = new THREE.BoxGeometry(21.4, 0.8, 126);
+      const deckMesh = new THREE.Mesh(deckGeo, deckMaterial);
+      deckMesh.position.set(0, 8.2, 3);
+      hullGroup.add(deckMesh);
+
+      // 艏楼防浪斜甲板 (Turtleback Foredeck)
+      const foreDeckGeo = new THREE.BoxGeometry(16, 0.8, 30);
+      const foreDeck = new THREE.Mesh(foreDeckGeo, deckMaterial);
+      foreDeck.position.set(0, 8.6, 50);
+      foreDeck.rotation.x = -0.02;
+      hullGroup.add(foreDeck);
+
+      shipGroup.add(hullGroup);
+
+      // -------------------------------------------------------------
+      // (2) 错落有致的高耸指挥舰桥塔 (Conning Tower & Bridge Structure)
+      // -------------------------------------------------------------
+      const bridgeGroup = new THREE.Group();
+
+      // 第一层：装甲司令塔基座 (Tier 1 Citadel base)
+      const tier1Geo = new THREE.BoxGeometry(14, 6, 42);
+      const tier1 = new THREE.Mesh(tier1Geo, darkArmorMaterial);
+      tier1.position.set(0, 11.5, 6);
+      bridgeGroup.add(tier1);
+
+      // 第二层：主导航室与露天防空观察廊 (Tier 2 Flying Bridge)
+      const tier2Geo = new THREE.BoxGeometry(11, 4.5, 24);
+      const tier2 = new THREE.Mesh(tier2Geo, hullMaterial);
+      tier2.position.set(0, 16.5, 12);
+      bridgeGroup.add(tier2);
+
+      // 罗经舰桥防弹观察窗 (Slits of conning windows)
+      const winGeo = new THREE.BoxGeometry(11.2, 0.7, 5);
+      const winMesh = new THREE.Mesh(winGeo, glassMaterial);
+      winMesh.position.set(0, 17.5, 14);
+      bridgeGroup.add(winMesh);
+
+      // 第三层：上层舰桥与光学测距仪平台 (Tier 3 Upper Director Tower)
+      const tier3Geo = new THREE.CylinderGeometry(3.8, 4.8, 5, 8);
+      const tier3 = new THREE.Mesh(tier3Geo, darkArmorMaterial);
+      tier3.position.set(0, 21.0, 13);
+      bridgeGroup.add(tier3);
+
+      // 巨型立体光学测距仪横梁 (Stereoscopic Rangefinder Bar)
+      const rangefinderBarGeo = new THREE.BoxGeometry(15, 1.2, 1.8);
+      const rangefinderBar = new THREE.Mesh(rangefinderBarGeo, gunMaterial);
+      rangefinderBar.position.set(0, 24.2, 13);
+      bridgeGroup.add(rangefinderBar);
+
+      // 倾斜巨型烟囱 (Two Raked Smokestacks / Funnels)
+      const funnelGeo = new THREE.CylinderGeometry(2.8, 3.2, 12, 12);
+      funnelGeo.scale(1, 1, 0.7);
+      
+      const funnel1 = new THREE.Mesh(funnelGeo, darkArmorMaterial);
+      funnel1.rotation.x = -0.15;
+      funnel1.position.set(0, 18, 0);
+
+      const funnel2 = new THREE.Mesh(funnelGeo, darkArmorMaterial);
+      funnel2.rotation.x = -0.15;
+      funnel2.position.set(0, 17.5, -14);
+
+      const capGeo = new THREE.CylinderGeometry(3.0, 2.9, 1.5, 12);
+      const cap1 = new THREE.Mesh(capGeo, gunMaterial);
+      cap1.position.y = 5.8;
+      funnel1.add(cap1);
+      const cap2 = new THREE.Mesh(capGeo, gunMaterial);
+      cap2.position.y = 5.8;
+      funnel2.add(cap2);
+
+      bridgeGroup.add(funnel1, funnel2);
+
+      // -------------------------------------------------------------
+      // (3) 雷达桅杆与天线网 (Radar Lattice Masts)
+      // -------------------------------------------------------------
+      const mastGroup = new THREE.Group();
+      const mastLegGeo = new THREE.CylinderGeometry(0.3, 0.6, 26, 6);
+      const centerLeg = new THREE.Mesh(mastLegGeo, gunMaterial);
+      centerLeg.position.set(0, 31, 8);
+      mastGroup.add(centerLeg);
+
+      const sideLegL = new THREE.Mesh(mastLegGeo, gunMaterial);
+      sideLegL.position.set(-2.5, 30, 6);
+      sideLegL.rotation.z = -0.09;
+      const sideLegR = new THREE.Mesh(mastLegGeo, gunMaterial);
+      sideLegR.position.set(2.5, 30, 6);
+      sideLegR.rotation.z = 0.09;
+      mastGroup.add(sideLegL, sideLegR);
+
+      // 桅顶横桁 (Yardarm)
+      const yardarmGeo = new THREE.CylinderGeometry(0.18, 0.18, 14, 6);
+      const yardarm = new THREE.Mesh(yardarmGeo, gunMaterial);
+      yardarm.rotation.z = Math.PI / 2;
+      yardarm.position.set(0, 38, 8);
+      mastGroup.add(yardarm);
+
+      // 对空对海警戒雷达网架 (Air Search Radar Dish - 匀速旋转)
+      const radarFrameGeo = new THREE.BoxGeometry(4.5, 2.2, 0.4);
+      const radarDish = new THREE.Mesh(radarFrameGeo, brassMaterial);
+      radarDish.position.set(0, 41, 8);
+      mastGroup.add(radarDish);
+      shipGroup.userData.radarDish = radarDish;
+
+      bridgeGroup.add(mastGroup);
+      shipGroup.add(bridgeGroup);
+
+      // -------------------------------------------------------------
+      // (4) 双联装重型主炮塔 (Twin Heavy Main Gun Turrets)
+      // -------------------------------------------------------------
+      function createTwinTurret() {
+        const turret = new THREE.Group();
+
+        const barbetteGeo = new THREE.CylinderGeometry(5.8, 5.8, 3.5, 20);
+        const barbette = new THREE.Mesh(barbetteGeo, darkArmorMaterial);
+        barbette.position.y = 1.75;
+        turret.add(barbette);
+
+        const houseGeo = new THREE.BoxGeometry(9.5, 4.0, 13);
+        const house = new THREE.Mesh(houseGeo, hullMaterial);
+        house.position.set(0, 4.2, 0.5);
+        turret.add(house);
+
+        const turretRfGeo = new THREE.BoxGeometry(11.5, 1.2, 1.5);
+        const turretRf = new THREE.Mesh(turretRfGeo, gunMaterial);
+        turretRf.position.set(0, 5.2, -4.5);
+        turret.add(turretRf);
+
+        const barrelGeo = new THREE.CylinderGeometry(0.48, 0.72, 18, 12);
+        barrelGeo.rotateX(Math.PI / 2);
+
+        const barrelL = new THREE.Mesh(barrelGeo, gunMaterial);
+        barrelL.position.set(-1.8, 4.2, 11);
+        barrelL.rotation.x = -0.12;
+
+        const barrelR = new THREE.Mesh(barrelGeo, gunMaterial);
+        barrelR.position.set(1.8, 4.2, 11);
+        barrelR.rotation.x = -0.12;
+
+        turret.add(barrelL, barrelR);
+        return turret;
+      }
+
+      // A 炮塔 (艏部前甲板)
+      const turretA = createTwinTurret();
+      turretA.position.set(0, 8.5, 42);
+      shipGroup.add(turretA);
+
+      // B 炮塔 (背负式高阶二号炮塔，座圈更高)
+      const turretB = createTwinTurret();
+      turretB.position.set(0, 11.5, 27);
+      shipGroup.add(turretB);
+
+      // X 炮塔 (后甲板向后指向)
+      const turretX = createTwinTurret();
+      turretX.position.set(0, 8.5, -40);
+      turretX.rotation.y = Math.PI;
+      shipGroup.add(turretX);
+
+      // 副炮塔 (两舷各2座双联装高平两用副炮)
+      const secGeo = new THREE.BoxGeometry(3.5, 2.5, 4);
+      const secBarrelGeo = new THREE.CylinderGeometry(0.2, 0.3, 5, 8);
+      secBarrelGeo.rotateX(Math.PI / 2);
+      [-10, 10].forEach(sideX => {
+        [-5, 8].forEach(posZ => {
+          const sec = new THREE.Group();
+          const house = new THREE.Mesh(secGeo, darkArmorMaterial);
+          const b1 = new THREE.Mesh(secBarrelGeo, gunMaterial);
+          b1.position.set(-0.6, 0, 3.2);
+          const b2 = new THREE.Mesh(secBarrelGeo, gunMaterial);
+          b2.position.set(0.6, 0, 3.2);
+          sec.add(house, b1, b2);
+          sec.position.set(sideX, 10.5, posZ);
+          sec.rotation.y = sideX > 0 ? Math.PI / 2 : -Math.PI / 2;
+          shipGroup.add(sec);
+        });
+      });
+
+      // -------------------------------------------------------------
+      // (5) 大功率探照灯与光锥体积束 (Searchlights & Volumetric Beams)
+      // -------------------------------------------------------------
+      const searchlights = [];
+      function createSearchlight(isBowFacing = false) {
+        const slGroup = new THREE.Group();
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 1.2, 8), darkArmorMaterial);
+        const lamp = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 1.4, 12), brassMaterial);
+        lamp.rotation.x = Math.PI / 2;
+        lamp.position.y = 1.0;
+
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.9, 12), new THREE.MeshBasicMaterial({
+          color: 0xe0f2fe,
+          transparent: true,
+          opacity: 0.95
+        }));
+        lens.position.set(0, 1.0, 0.72);
+
+        // 强力聚光灯
+        const spotLight = new THREE.SpotLight(0xcfdffd, 0, 220, Math.PI / 9, 0.45, 1.2);
+        spotLight.position.set(0, 1.0, 0.8);
+        spotLight.target.position.set(0, isBowFacing ? 3.0 : -5.0, isBowFacing ? 80 : 50);
+
+        // 穿透暴雨的光束光锥几何体 (Volumetric Light Cone)
+        const coneGeo = new THREE.ConeGeometry(8, 120, 16, 1, true);
+        coneGeo.translate(0, -60, 0);
+        coneGeo.rotateX(-Math.PI / 2);
+        const coneMat = new THREE.MeshBasicMaterial({
+          color: 0x93c5fd,
+          transparent: true,
+          opacity: 0.0,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+          depthWrite: false
+        });
+        const beamCone = new THREE.Mesh(coneGeo, coneMat);
+        beamCone.position.set(0, 1.0, 0.8);
+
+        slGroup.add(base, lamp, lens, spotLight, spotLight.target, beamCone);
+        slGroup.userData = { spotLight, beamCone };
+        return slGroup;
+      }
+
+      // 两舷舰桥探照灯
+      const slPort = createSearchlight(true);
+      slPort.position.set(-7.5, 18.5, 12);
+      const slStbd = createSearchlight(true);
+      slStbd.position.set(7.5, 18.5, 12);
+      shipGroup.add(slPort, slStbd);
+      searchlights.push(slPort, slStbd);
+      shipGroup.userData.searchlights = searchlights;
+
+      // -------------------------------------------------------------
+      // (6) 三联装巨大螺旋桨与舵面 (Triple Screws & Massive Rudder)
+      // -------------------------------------------------------------
+      const props = [];
+      function createScrewPropeller() {
+        const propGroup = new THREE.Group();
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 2.2, 10), brassMaterial);
+        hub.rotation.x = Math.PI / 2;
+        propGroup.add(hub);
+
+        const bladeGeo = new THREE.BoxGeometry(0.3, 2.8, 1.1);
+        for (let i = 0; i < 3; i++) {
+          const blade = new THREE.Mesh(bladeGeo, brassMaterial);
+          blade.rotation.z = (i * Math.PI * 2) / 3;
+          blade.rotation.y = 0.35;
+          propGroup.add(blade);
+        }
+        return propGroup;
+      }
+
+      const centerProp = createScrewPropeller();
+      centerProp.position.set(0, -4.2, -62);
+      const portProp = createScrewPropeller();
+      portProp.position.set(-6.5, -4.0, -58);
+      const stbdProp = createScrewPropeller();
+      stbdProp.position.set(6.5, -4.0, -58);
+
+      shipGroup.add(centerProp, portProp, stbdProp);
+      props.push(centerProp, portProp, stbdProp);
+      shipGroup.userData.props = props;
+
+      const rudderGeo = new THREE.BoxGeometry(0.8, 8, 5.5);
+      const rudder = new THREE.Mesh(rudderGeo, darkArmorMaterial);
+      rudder.position.set(0, -3.2, -66);
+      shipGroup.add(rudder);
+
+      return shipGroup;
+    }
+
+    /* =========================================================================
+       3. 多频正弦海浪着色器 (顶点置换 + 片段法线光照，纯 GPU 极速运算)
+       ========================================================================= */
+    const OceanShader = {
+      vertexShader: `
+        uniform float uTime;
+        uniform float uStormScale;
+        uniform float uRogueWave;
+        
+        varying vec3 vWorldPosition;
+        varying vec3 vViewPosition;
+        varying float vElevation;
+
+        float getWaveHeight(vec2 pos) {
+          float h = 0.0;
+          
+          // 波浪 1: 基础大洋长涌
+          float k1 = 0.018;
+          float w1 = 1.1;
+          h += sin(pos.x * 0.012 + pos.y * k1 - uTime * w1) * 2.8 * uStormScale;
+          
+          // 波浪 2: 侧向交错浪
+          float k2 = 0.032;
+          float w2 = 1.6;
+          h += cos(pos.x * k2 * 0.7 - pos.y * k2 * 0.7 - uTime * w2) * 1.7 * uStormScale;
+
+          // 波浪 3: 狂风短切碎浪
+          float k3 = 0.085;
+          float w3 = 2.4;
+          h += sin(pos.x * k3 * 0.9 + pos.y * k3 * 0.4 + uTime * w3) * 0.9 * uStormScale;
+
+          // 波浪 4: 细密海表浪花纹
+          float k4 = 0.18;
+          float w4 = 3.6;
+          h += sin(pos.x * k4 * 0.5 - pos.y * k4 * 0.8 - uTime * w4) * 0.35 * uStormScale;
+
+          // 高潮特异波：百米疯狗浪 (Rogue Wave 单独巨峰冲击)
+          if (uRogueWave > 0.001) {
+            float distFromCrest = (pos.y + 40.0) - (uTime * 14.0);
+            float rogueProfile = exp(-0.0006 * distFromCrest * distFromCrest);
+            h += rogueProfile * 32.0 * uRogueWave;
+          }
+
+          return h;
+        }
+
+        void main() {
+          vec3 transformed = position;
+          vec4 worldPos = modelMatrix * vec4(transformed, 1.0);
+          
+          float elevation = getWaveHeight(worldPos.xz);
+          transformed.y += elevation;
+          vElevation = elevation;
+
+          vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+          vViewPosition = -mvPosition.xyz;
+          vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
+
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uStormScale;
+        uniform vec3 uDeepColor;
+        uniform vec3 uShallowColor;
+        uniform vec3 uFoamColor;
+        uniform vec3 uSunPosition;
+        uniform vec3 uLightningColor;
+        uniform float uLightningIntensity;
+
+        varying vec3 vWorldPosition;
+        varying vec3 vViewPosition;
+        varying float vElevation;
+
+        void main() {
+          // 在片段着色器通过屏幕空间有限微元求法线，避免 CPU 万级顶点法线耗损！
+          vec3 dX = dFdx(vWorldPosition);
+          vec3 dY = dFdy(vWorldPosition);
+          vec3 normal = normalize(cross(dX, dY));
+
+          vec3 viewDir = normalize(vViewPosition);
+
+          // 菲涅尔反射率 (Schlick 近似)
+          float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.5);
+
+          // 基础海水颜色插值 (深邃海渊到浪峰浅色)
+          float depthFactor = clamp((vElevation + 6.0) / 14.0, 0.0, 1.0);
+          vec3 waterColor = mix(uDeepColor, uShallowColor, depthFactor);
+
+          // 浪尖白沫生成 (Foam Crests)
+          float foamThreshold = mix(3.5, 1.5, clamp(uStormScale - 1.0, 0.0, 1.0));
+          float foamFactor = smoothstep(foamThreshold, foamThreshold + 2.5, vElevation);
+          waterColor = mix(waterColor, uFoamColor, foamFactor * 0.85);
+
+          // 阳光 / 天空高光反射
+          vec3 lightDir = normalize(uSunPosition);
+          vec3 halfVector = normalize(lightDir + viewDir);
+          float spec = pow(max(dot(normal, halfVector), 0.0), 64.0);
+          vec3 specular = vec3(1.0) * spec * 0.8;
+
+          // 闪电瞬间惨白冷光散射
+          vec3 lightningSpecular = uLightningColor * (spec * 3.5 + 0.25) * uLightningIntensity;
+
+          // 最终合成着色
+          vec3 finalColor = waterColor + specular + lightningSpecular + (vec3(0.05, 0.15, 0.25) * fresnel * 0.6);
+
+          // 大气雾化边缘融入深渊天际线
+          float dist = length(vViewPosition);
+          float fogFactor = smoothstep(220.0, 580.0, dist);
+          vec3 fogColor = mix(vec3(0.01, 0.02, 0.05), vec3(0.3, 0.35, 0.45), uLightningIntensity * 0.6);
+          finalColor = mix(finalColor, fogColor, fogFactor);
+
+          gl_FragColor = vec4(finalColor, 1.0);
+        }
+      `
+    };
+
+    // CPU 端平行波高计算函数（仅采样战舰 4 个特征点，开销接近 0ms）
+    function getCPUWaveElevation(x, z, time, stormScale, rogueWave) {
+      let h = 0.0;
+      h += Math.sin(x * 0.012 + z * 0.018 - time * 1.1) * 2.8 * stormScale;
+      h += Math.cos(x * 0.032 * 0.7 - z * 0.032 * 0.7 - time * 1.6) * 1.7 * stormScale;
+      h += Math.sin(x * 0.085 * 0.9 + z * 0.085 * 0.4 + time * 2.4) * 0.9 * stormScale;
+      h += Math.sin(x * 0.18 * 0.5 - z * 0.18 * 0.8 - time * 3.6) * 0.35 * stormScale;
+
+      if (rogueWave > 0.001) {
+        const dist = (z + 40.0) - (time * 14.0);
+        const rogueProfile = Math.exp(-0.0006 * dist * dist);
+        h += rogueProfile * 32.0 * rogueWave;
+      }
+      return h;
+    }
+
+    /* =========================================================================
+       4. 粒子系统 (狂风暴雨粒子 + 船首破浪飞溅水花 + 蒸汽安全阀排气)
+       ========================================================================= */
+    function createRainParticleSystem(count = 14000) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const velocities = new Float32Array(count * 3);
+
+      for (let i = 0; i < count; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 360;
+        positions[i * 3 + 1] = Math.random() * 160;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 360;
+
+        velocities[i * 3] = -0.4 - Math.random() * 0.3;
+        velocities[i * 3 + 1] = -2.4 - Math.random() * 1.2;
+        velocities[i * 3 + 2] = -0.6 - Math.random() * 0.4;
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+      const material = new THREE.PointsMaterial({
+        color: 0x93c5fd,
+        size: 0.75,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const particleSystem = new THREE.Points(geometry, material);
+      particleSystem.userData = { velocities, count };
+      return particleSystem;
+    }
+
+    function createBowSplashParticles(count = 1800) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const velocities = new Float32Array(count * 3);
+      const life = new Float32Array(count);
+
+      for (let i = 0; i < count; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 8;
+        positions[i * 3 + 1] = 2;
+        positions[i * 3 + 2] = 58 + Math.random() * 12;
+
+        velocities[i * 3] = (Math.random() - 0.5) * 1.8;
+        velocities[i * 3 + 1] = 0.8 + Math.random() * 2.2;
+        velocities[i * 3 + 2] = -0.5 - Math.random() * 1.5;
+        life[i] = Math.random();
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({
+        color: 0xe0f2fe,
+        size: 1.5,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const system = new THREE.Points(geometry, material);
+      system.userData = { velocities, life, count };
+      return system;
+    }
+
+    function createSteamParticles(count = 800) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const velocities = new Float32Array(count * 3);
+
+      for (let i = 0; i < count; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 3;
+        positions[i * 3 + 1] = 22 + Math.random() * 4;
+        positions[i * 3 + 2] = -4 + (Math.random() - 0.5) * 14;
+
+        velocities[i * 3] = (Math.random() - 0.5) * 0.2;
+        velocities[i * 3 + 1] = 0.4 + Math.random() * 0.8;
+        velocities[i * 3 + 2] = -0.2 - Math.random() * 0.5;
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 2.2,
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false
+      });
+
+      const system = new THREE.Points(geometry, material);
+      system.userData = { velocities, count };
+      return system;
+    }
+
+    /* =========================================================================
+       5. 主舞台渲染管线与电影叙事导演系统 (90 秒 5 阶段演变)
+       ========================================================================= */
+    const STORY_STAGES = [
+      {
+        index: 0,
+        name: "序章:暗流涌动",
+        badge: "CH. 01 · 序章 · 1943年10月",
+        text: "气压计骤降，铅灰色的大西洋暗流涌动，巨舰正孤独驶入不可预测的午夜海渊……",
+        startTime: 0,
+        endTime: 18,
+        stormScale: 1.0,
+        rogueWave: 0.0,
+        rainOpacity: 0.05,
+        skyBg: new THREE.Color(0x0a0c14),
+        deepColor: new THREE.Vector3(0.04, 0.08, 0.12),
+        shallowColor: new THREE.Vector3(0.12, 0.22, 0.28),
+        lightningChance: 0.001
+      },
+      {
+        index: 1,
+        name: "转折:风暴降临",
+        badge: "CH. 02 · 转折 · 狂风骤雨",
+        text: "黑云压顶，暴雨如倾盆冰箭！洋流撕裂为深沉巨浪，巨型战列舰加速突围！",
+        startTime: 18,
+        endTime: 36,
+        stormScale: 2.4,
+        rogueWave: 0.0,
+        rainOpacity: 0.65,
+        skyBg: new THREE.Color(0x04060a),
+        deepColor: new THREE.Vector3(0.015, 0.035, 0.06),
+        shallowColor: new THREE.Vector3(0.06, 0.13, 0.18),
+        lightningChance: 0.008
+      },
+      {
+        index: 2,
+        name: "升温:雷霆万钧",
+        badge: "CH. 03 · 升温 · 雷霆万钧",
+        text: "苍白雷霆撕裂惨黑怒海！罗盘剧烈偏转，钢铁战舰发生高达20度的极限纵摇与侧倾！",
+        startTime: 36,
+        endTime: 55,
+        stormScale: 3.8,
+        rogueWave: 0.0,
+        rainOpacity: 0.9,
+        skyBg: new THREE.Color(0x020306),
+        deepColor: new THREE.Vector3(0.005, 0.015, 0.03),
+        shallowColor: new THREE.Vector3(0.04, 0.08, 0.12),
+        lightningChance: 0.025
+      },
+      {
+        index: 3,
+        name: "高潮:疯狗浪",
+        badge: "CH. 04 · 高潮 · 百米疯狗浪冲击",
+        text: "ALL ENGINES FULL · 数十米深海狂浪黑影压顶而来，战舰全速逆浪破壁冲击！",
+        startTime: 55,
+        endTime: 75,
+        stormScale: 5.2,
+        rogueWave: 1.0,
+        rainOpacity: 1.0,
+        skyBg: new THREE.Color(0x010204),
+        deepColor: new THREE.Vector3(0.002, 0.008, 0.015),
+        shallowColor: new THREE.Vector3(0.02, 0.05, 0.08),
+        lightningChance: 0.035
+      },
+      {
+        index: 4,
+        name: "终章:风暴眼",
+        badge: "CH. 05 · 终章 · 劫后寂静",
+        text: "战舰破浪冲入圆形风暴眼！皎洁月光从云洞倾泻在钢铁甲板上，安全阀长鸣释压白烟。",
+        startTime: 75,
+        endTime: 90,
+        stormScale: 0.45,
+        rogueWave: 0.0,
+        rainOpacity: 0.02,
+        skyBg: new THREE.Color(0x061122),
+        deepColor: new THREE.Vector3(0.02, 0.06, 0.12),
+        shallowColor: new THREE.Vector3(0.08, 0.18, 0.28),
+        lightningChance: 0.0
+      }
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('canvas-container');
+      const audioElement = new NavalAudioEngine();
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0c14);
+      scene.fog = new THREE.FogExp2(0x050811, 0.0035);
+
+      const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 1500);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      container.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0x334155, 0.6);
+      scene.add(ambientLight);
+
+      const sunMoonLight = new THREE.DirectionalLight(0x93c5fd, 0.8);
+      sunMoonLight.position.set(120, 80, 100);
+      scene.add(sunMoonLight);
+
+      const lightningLight = new THREE.PointLight(0xdbeafe, 0, 800, 1.5);
+      lightningLight.position.set(0, 120, 0);
+      scene.add(lightningLight);
+
+      const godrayLight = new THREE.SpotLight(0xe0f2fe, 0, 300, Math.PI / 8, 0.4, 0.8);
+      godrayLight.position.set(0, 160, 0);
+      scene.add(godrayLight);
+      scene.add(godrayLight.target);
+
+      // 1. 构建战舰
+      const battleship = buildEpicBattleship();
+      battleship.position.set(0, 0, 0);
+      scene.add(battleship);
+      godrayLight.target = battleship;
+
+      // 2. 构建轻量海洋网格 (1000x1000 尺寸, 140x140 细分，极速且细腻)
+      const oceanGeo = new THREE.PlaneGeometry(1000, 1000, 140, 140);
+      oceanGeo.rotateX(-Math.PI / 2);
+
+      const oceanUniforms = {
+        uTime: { value: 0 },
+        uStormScale: { value: 1.0 },
+        uRogueWave: { value: 0.0 },
+        uDeepColor: { value: new THREE.Vector3(0.04, 0.08, 0.12) },
+        uShallowColor: { value: new THREE.Vector3(0.12, 0.22, 0.28) },
+        uFoamColor: { value: new THREE.Vector3(0.85, 0.92, 0.96) },
+        uSunPosition: { value: sunMoonLight.position },
+        uLightningColor: { value: new THREE.Vector3(0.9, 0.95, 1.0) },
+        uLightningIntensity: { value: 0.0 }
+      };
+
+      const oceanMat = new THREE.ShaderMaterial({
+        vertexShader: OceanShader.vertexShader,
+        fragmentShader: OceanShader.fragmentShader,
+        uniforms: oceanUniforms,
+        wireframe: false
+      });
+
+      const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+      scene.add(oceanMesh);
+
+      // 3. 构建粒子层
+      const rainSystem = createRainParticleSystem(14000);
+      scene.add(rainSystem);
+
+      const splashSystem = createBowSplashParticles(1800);
+      battleship.add(splashSystem);
+
+      const steamSystem = createSteamParticles(800);
+      battleship.add(steamSystem);
+
+      let isPlaying = true;
+      let timelineTime = 0.0;
+      const TOTAL_DURATION = 90.0;
+      let currentStageIndex = 0;
+      let isFreeCamera = false;
+
+      // 自由观察相机交互
+      let isDragging = false;
+      let prevMouseX = 0, prevMouseY = 0;
+      let freeCamDist = 180, freeCamTheta = 0.4, freeCamPhi = 0.3;
+
+      window.addEventListener('mousedown', (e) => {
+        if (!isFreeCamera) return;
+        isDragging = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isFreeCamera || !isDragging) return;
+        const dx = e.clientX - prevMouseX;
+        const dy = e.clientY - prevMouseY;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+
+        freeCamTheta -= dx * 0.008;
+        freeCamPhi = Math.max(0.05, Math.min(Math.PI / 2 - 0.02, freeCamPhi - dy * 0.008));
+      });
+      window.addEventListener('mouseup', () => { isDragging = false; });
+      window.addEventListener('wheel', (e) => {
+        if (!isFreeCamera) return;
+        freeCamDist = Math.max(40, Math.min(420, freeCamDist + e.deltaY * 0.2));
+      }, { passive: true });
+
+      // 闪电雷击触发函数
+      const flashEl = document.getElementById('lightning-flash');
+      function triggerLightningStrike(isHuge = false) {
+        oceanUniforms.uLightningIntensity.value = 1.0;
+        lightningLight.intensity = isHuge ? 4.5 : 2.5;
+        flashEl.style.opacity = isHuge ? '0.95' : '0.7';
+
+        audioElement.playThunder(isHuge);
+
+        setTimeout(() => {
+          flashEl.style.opacity = '0.0';
+          oceanUniforms.uLightningIntensity.value = 0.2;
+          lightningLight.intensity = 0.4;
+          setTimeout(() => {
+            flashEl.style.opacity = isHuge ? '0.6' : '0.4';
+            oceanUniforms.uLightningIntensity.value = 0.8;
+            lightningLight.intensity = 1.8;
+            setTimeout(() => {
+              flashEl.style.opacity = '0.0';
+              oceanUniforms.uLightningIntensity.value = 0.0;
+              lightningLight.intensity = 0.0;
+            }, 60);
+          }, 80);
+        }, 50);
+      }
+
+      // UI 绑定与字幕切换
+      const subtitleTextEl = document.getElementById('subtitle-text');
+      const chapterBadgeEl = document.getElementById('chapter-badge');
+      const dropletsEl = document.getElementById('lens-droplets');
+      const hudTiltEl = document.getElementById('hud-tilt');
+      const hudWeatherEl = document.getElementById('hud-weather');
+      const hudBaroEl = document.getElementById('hud-baro');
+      const hudSpeedEl = document.getElementById('hud-speed');
+      const hudStatusEl = document.getElementById('hud-status');
+      const progressFill = document.getElementById('progress-fill');
+      const timelineTimeEl = document.getElementById('timeline-time');
+
+      function switchChapterUI(stage) {
+        chapterBadgeEl.textContent = stage.badge;
+        subtitleTextEl.style.opacity = '0';
+        subtitleTextEl.style.transform = 'translateY(8px)';
+        setTimeout(() => {
+          subtitleTextEl.textContent = stage.text;
+          subtitleTextEl.style.opacity = '1';
+          subtitleTextEl.style.transform = 'translateY(0)';
+        }, 500);
+
+        document.querySelectorAll('.ch-btn').forEach((btn, idx) => {
+          btn.classList.toggle('active', idx === stage.index);
+        });
+      }
+
+      // 摄像机导播运镜序列 (五幕电影级镜头)
+      function updateCinematicCamera(stage, progressInStage, delta) {
+        if (isFreeCamera) {
+          const cx = battleship.position.x + freeCamDist * Math.sin(freeCamTheta) * Math.cos(freeCamPhi);
+          const cy = battleship.position.y + freeCamDist * Math.sin(freeCamPhi);
+          const cz = battleship.position.z + freeCamDist * Math.cos(freeCamTheta) * Math.cos(freeCamPhi);
+          camera.position.lerp(new THREE.Vector3(cx, Math.max(cy, 5), cz), 0.1);
+          camera.lookAt(battleship.position.x, battleship.position.y + 12, battleship.position.z);
+          return;
+        }
+
+        const t = progressInStage;
+
+        if (stage.index === 0) {
+          // 序章：长焦远景环绕巡弋 (Cinematic Telephoto Long-shot)
+          const angle = 0.6 + t * 0.45;
+          const dist = 210 - t * 25;
+          const camTargetX = battleship.position.x + Math.sin(angle) * dist;
+          const camTargetZ = battleship.position.z + Math.cos(angle) * dist;
+          camera.position.lerp(new THREE.Vector3(camTargetX, 42, camTargetZ), 0.05);
+          camera.lookAt(battleship.position.x, battleship.position.y + 14, battleship.position.z + 10);
+        } else if (stage.index === 1) {
+          // 转折：低贴海平面飞掠舷侧 (Sea-skimming waterline flyby)
+          const sideOffset = Math.sin(t * Math.PI) * 4;
+          const camX = battleship.position.x - 24 - sideOffset;
+          const camY = Math.max(battleship.position.y + 3.2, 4.5);
+          const camZ = battleship.position.z + 45 - t * 85;
+          camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.06);
+          camera.lookAt(battleship.position.x, battleship.position.y + 9, battleship.position.z - 10);
+        } else if (stage.index === 2) {
+          // 升温：船艏甲板仰角仰望高耸指挥桥塔 (Foredeck low-angle looking up)
+          const bowPos = new THREE.Vector3(0, 11, 48).applyQuaternion(battleship.quaternion).add(battleship.position);
+          camera.position.lerp(bowPos, 0.1);
+          const bridgeLook = new THREE.Vector3(0, 26, 8).applyQuaternion(battleship.quaternion).add(battleship.position);
+          camera.lookAt(bridgeLook);
+        } else if (stage.index === 3) {
+          // 高潮：船尾极低视角仰望百米疯狗浪与主炮 (Extreme low stern shot facing the monster wave)
+          const sternCamPos = new THREE.Vector3(0, 8, -85).applyQuaternion(battleship.quaternion).add(battleship.position);
+          camera.position.lerp(sternCamPos, 0.08);
+          const waveLook = new THREE.Vector3(0, 52, -180);
+          camera.lookAt(waveLook);
+        } else if (stage.index === 4) {
+          // 终章：风暴眼静止升空俯瞰 (Ascending crane shot into moonlight)
+          const camY = 32 + t * 45;
+          const camZ = 75 + t * 60;
+          camera.position.lerp(new THREE.Vector3(35, camY, camZ), 0.04);
+          camera.lookAt(battleship.position.x, battleship.position.y + 8, battleship.position.z);
+        }
+      }
+
+      function seekTimeline(targetTime) {
+        timelineTime = THREE.MathUtils.clamp(targetTime, 0, TOTAL_DURATION);
+        const stage = STORY_STAGES.find(s => timelineTime >= s.startTime && timelineTime < s.endTime) || STORY_STAGES[4];
+        currentStageIndex = stage.index;
+        switchChapterUI(stage);
+      }
+
+      // 启动按钮点击 (解锁 Web Audio)
+      document.getElementById('start-btn').addEventListener('click', () => {
+        audioElement.init();
+        document.getElementById('start-overlay').style.opacity = '0';
+        setTimeout(() => {
+          document.getElementById('start-overlay').style.display = 'none';
+        }, 1300);
+        switchChapterUI(STORY_STAGES[0]);
+      });
+
+      // UI 按钮监听
+      document.getElementById('btn-play').addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        document.getElementById('btn-play').classList.toggle('active', !isPlaying);
+      });
+
+      document.getElementById('btn-horn').addEventListener('click', () => {
+        audioElement.playHornAndBell();
+      });
+
+      document.getElementById('btn-lightning').addEventListener('click', () => {
+        triggerLightningStrike(true);
+      });
+
+      const camBtn = document.getElementById('btn-camera');
+      camBtn.addEventListener('click', () => {
+        isFreeCamera = !isFreeCamera;
+        camBtn.classList.toggle('active', isFreeCamera);
+        camBtn.textContent = isFreeCamera ? "导播运镜" : "自由视角";
+      });
+
+      document.getElementById('progress-wrap').addEventListener('click', (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const ratio = (e.clientX - rect.left) / rect.width;
+        seekTimeline(ratio * TOTAL_DURATION);
+      });
+
+      document.querySelectorAll('.ch-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const t = parseFloat(btn.getAttribute('data-time'));
+          seekTimeline(t);
+        });
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // -------------------------------------------------------------
+      // 主循环动画逐帧渲染
+      // -------------------------------------------------------------
+      const clock = new THREE.Clock();
+      let rollAngle = 0, pitchAngle = 0;
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const delta = Math.min(clock.getDelta(), 0.1);
+
+        if (isPlaying) {
+          timelineTime += delta;
+          if (timelineTime >= TOTAL_DURATION) {
+            timelineTime = 0.0;
+          }
+        }
+
+        const stage = STORY_STAGES.find(s => timelineTime >= s.startTime && timelineTime < s.endTime) || STORY_STAGES[4];
+        if (stage.index !== currentStageIndex) {
+          currentStageIndex = stage.index;
+          switchChapterUI(stage);
+        }
+
+        const stageProgress = (timelineTime - stage.startTime) / (stage.endTime - stage.startTime);
+
+        // 更新着色器 Uniforms
+        oceanUniforms.uTime.value = clock.getElapsedTime();
+        oceanUniforms.uStormScale.value = THREE.MathUtils.lerp(oceanUniforms.uStormScale.value, stage.stormScale, 0.05);
+        oceanUniforms.uRogueWave.value = THREE.MathUtils.lerp(oceanUniforms.uRogueWave.value, stage.rogueWave, 0.05);
+        oceanUniforms.uDeepColor.value.lerp(stage.deepColor, 0.05);
+        oceanUniforms.uShallowColor.value.lerp(stage.shallowColor, 0.05);
+
+        scene.background.lerp(stage.skyBg, 0.05);
+        scene.fog.color.lerp(stage.skyBg, 0.05);
+
+        // 终章月光光束
+        if (stage.index === 4) {
+          godrayLight.intensity = THREE.MathUtils.lerp(godrayLight.intensity, 3.8, 0.04);
+        } else {
+          godrayLight.intensity = THREE.MathUtils.lerp(godrayLight.intensity, 0.0, 0.1);
+        }
+
+        // 探照灯在暴雨与高潮时全功率贯穿夜空
+        const slPower = (stage.index === 2 || stage.index === 3) ? 1.0 : 0.0;
+        battleship.userData.searchlights.forEach(sl => {
+          sl.userData.spotLight.intensity = THREE.MathUtils.lerp(sl.userData.spotLight.intensity, slPower * 5.0, 0.08);
+          sl.userData.beamCone.material.opacity = THREE.MathUtils.lerp(sl.userData.beamCone.material.opacity, slPower * 0.45, 0.08);
+        });
+
+        // 镜头水滴覆盖层
+        dropletsEl.style.opacity = stage.index >= 1 && stage.index <= 3 ? '0.75' : '0.0';
+
+        // 随机苍白闪电触发
+        if (Math.random() < stage.lightningChance) {
+          triggerLightningStrike(stage.index === 3);
+        }
+
+        // -------------------------------------------------------------
+        // CPU 战舰流体力学与波浪姿态拟合 (精准四点采样计算)
+        // -------------------------------------------------------------
+        const curTime = clock.getElapsedTime();
+        const curStorm = oceanUniforms.uStormScale.value;
+        const curRogue = oceanUniforms.uRogueWave.value;
+
+        // 采样点：艏(0, 60)、艉(0, -60)、左舷(-12, 0)、右舷(12, 0)
+        const bowH = getCPUWaveElevation(0, 60, curTime, curStorm, curRogue);
+        const sternH = getCPUWaveElevation(0, -60, curTime, curStorm, curRogue);
+        const portH = getCPUWaveElevation(-12, 0, curTime, curStorm, curRogue);
+        const stbdH = getCPUWaveElevation(12, 0, curTime, curStorm, curRogue);
+
+        const targetY = (bowH + sternH + portH + stbdH) * 0.25 - 2.8;
+        const targetPitch = Math.atan2(bowH - sternH, 120);
+        const targetRoll = Math.atan2(stbdH - portH, 24);
+
+        // 5万吨战列舰巨大惯性低通平滑
+        battleship.position.y += (targetY - battleship.position.y) * 0.06;
+        pitchAngle += (targetPitch - pitchAngle) * 0.05;
+        rollAngle += (targetRoll - rollAngle) * 0.05;
+
+        battleship.rotation.x = -pitchAngle;
+        battleship.rotation.z = rollAngle;
+
+        // 雷达天线匀速旋转
+        if (battleship.userData.radarDish) {
+          battleship.userData.radarDish.rotation.y += 0.035;
+        }
+
+        // 螺旋桨急速转动
+        if (battleship.userData.props) {
+          battleship.userData.props.forEach(p => p.rotation.z += 0.35);
+        }
+
+        // 船体受力呻吟声
+        const tiltDeg = Math.abs(rollAngle * (180 / Math.PI));
+        if (tiltDeg > 9.5) {
+          audioElement.playMetalCreak();
+        }
+
+        // -------------------------------------------------------------
+        // 粒子更新
+        // -------------------------------------------------------------
+        // 1. 暴雨粒子下坠与复位
+        rainSystem.material.opacity = THREE.MathUtils.lerp(rainSystem.material.opacity, stage.rainOpacity, 0.05);
+        if (rainSystem.material.opacity > 0.01) {
+          const rainPos = rainSystem.geometry.attributes.position.array;
+          const vels = rainSystem.userData.velocities;
+          for (let i = 0; i < rainSystem.userData.count; i++) {
+            rainPos[i * 3] += vels[i * 3];
+            rainPos[i * 3 + 1] += vels[i * 3 + 1];
+            rainPos[i * 3 + 2] += vels[i * 3 + 2];
+
+            if (rainPos[i * 3 + 1] < -5) {
+              rainPos[i * 3] = camera.position.x + (Math.random() - 0.5) * 320;
+              rainPos[i * 3 + 1] = camera.position.y + 60 + Math.random() * 80;
+              rainPos[i * 3 + 2] = camera.position.z + (Math.random() - 0.5) * 320;
+            }
+          }
+          rainSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // 2. 船艏拍浪飞溅水花
+        const splashOpacity = stage.index >= 1 && stage.index <= 3 ? 0.75 : 0.0;
+        splashSystem.material.opacity = THREE.MathUtils.lerp(splashSystem.material.opacity, splashOpacity, 0.08);
+        if (splashSystem.material.opacity > 0.01) {
+          const spPos = splashSystem.geometry.attributes.position.array;
+          const spVel = splashSystem.userData.velocities;
+          for (let i = 0; i < splashSystem.userData.count; i++) {
+            spPos[i * 3] += spVel[i * 3];
+            spPos[i * 3 + 1] += spVel[i * 3 + 1];
+            spPos[i * 3 + 2] += spVel[i * 3 + 2];
+            spVel[i * 3 + 1] -= 0.08;
+
+            if (spPos[i * 3 + 1] < 1.0) {
+              spPos[i * 3] = (Math.random() - 0.5) * 8;
+              spPos[i * 3 + 1] = 2.0;
+              spPos[i * 3 + 2] = 58 + Math.random() * 10;
+              spVel[i * 3 + 1] = 1.0 + Math.random() * 2.2;
+            }
+          }
+          splashSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // 3. 终章蒸汽安全阀释压白烟
+        const steamOpacity = stage.index === 4 ? 0.65 : 0.0;
+        steamSystem.material.opacity = THREE.MathUtils.lerp(steamSystem.material.opacity, steamOpacity, 0.05);
+        if (steamSystem.material.opacity > 0.01) {
+          const stmPos = steamSystem.geometry.attributes.position.array;
+          const stmVel = steamSystem.userData.velocities;
+          for (let i = 0; i < steamSystem.userData.count; i++) {
+            stmPos[i * 3] += stmVel[i * 3];
+            stmPos[i * 3 + 1] += stmVel[i * 3 + 1];
+            stmPos[i * 3 + 2] += stmVel[i * 3 + 2];
+
+            if (stmPos[i * 3 + 1] > 38) {
+              stmPos[i * 3] = (Math.random() - 0.5) * 3;
+              stmPos[i * 3 + 1] = 22;
+              stmPos[i * 3 + 2] = -4 + (Math.random() - 0.5) * 12;
+            }
+          }
+          steamSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // 导播运镜更新
+        updateCinematicCamera(stage, stageProgress, delta);
+
+        // 音频系统参数更新
+        audioElement.updateTimelineAudio(timelineTime, curStorm, stage.index);
+
+        // HUD 仪表盘数据同步
+        const curPitchDeg = (pitchAngle * 180 / Math.PI).toFixed(1);
+        const curRollDeg = (rollAngle * 180 / Math.PI).toFixed(1);
+        hudTiltEl.textContent = `${curPitchDeg > 0 ? '+' : ''}${curPitchDeg}° / ${curRollDeg > 0 ? '+' : ''}${curRollDeg}°`;
+
+        if (stage.index === 0) {
+          hudSpeedEl.textContent = "18.5 KTS (CRUISE)";
+          hudWeatherEl.textContent = "蒲氏 4 级 (16 KTS)";
+          hudBaroEl.textContent = "1012 hPa (微降)";
+          hudStatusEl.textContent = "NORMAL";
+          hudStatusEl.style.color = "#38bdf8";
+        } else if (stage.index === 1) {
+          hudSpeedEl.textContent = "24.0 KTS (FLANK)";
+          hudWeatherEl.textContent = "蒲氏 8 级 (42 KTS)";
+          hudBaroEl.textContent = "988 hPa (骤降)";
+          hudStatusEl.textContent = "ALERT-1";
+          hudStatusEl.style.color = "#facc15";
+        } else if (stage.index === 2) {
+          hudSpeedEl.textContent = "27.5 KTS (EMERGENCY)";
+          hudWeatherEl.textContent = "蒲氏 11 级 (60 KTS)";
+          hudBaroEl.textContent = "965 hPa (风暴深渊)";
+          hudStatusEl.textContent = "HEAVY STORM";
+          hudStatusEl.style.color = "#f97316";
+        } else if (stage.index === 3) {
+          hudSpeedEl.textContent = "31.2 KTS (ALL ENGINES FULL)";
+          hudWeatherEl.textContent = "蒲氏 12 级 (疯狗巨浪)";
+          hudBaroEl.textContent = "940 hPa (极限负荷)";
+          hudStatusEl.textContent = "CRITICAL";
+          hudStatusEl.style.color = "#ef4444";
+        } else if (stage.index === 4) {
+          hudSpeedEl.textContent = "8.0 KTS (IDLE)";
+          hudWeatherEl.textContent = "风平浪静 (风暴眼)";
+          hudBaroEl.textContent = "1004 hPa (回升)";
+          hudStatusEl.textContent = "CALM EYE";
+          hudStatusEl.style.color = "#34d399";
+        }
+
+        // 底部进度条更新
+        const pct = (timelineTime / TOTAL_DURATION) * 100;
+        progressFill.style.width = pct + '%';
+        const mins = Math.floor(timelineTime / 60);
+        const secs = Math.floor(timelineTime % 60);
+        timelineTimeEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} / 01:30`;
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    });
+  </script>
+</body>
+</html>

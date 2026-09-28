@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流浪地球：木星引力危机 - 3D交互史诗</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #020205;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            color: #fff;
+        }
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 电影遮幅与滤镜 */
+        .cinematic-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.85);
+            background: radial-gradient(circle at center, transparent 40%, rgba(0, 5, 15, 0.45) 85%, rgba(0,0,5,0.9) 100%);
+        }
+        .letterbox-top, .letterbox-bottom {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 5.5vh;
+            background: #000;
+            z-index: 10;
+            pointer-events: none;
+            transition: height 0.5s ease;
+        }
+        .letterbox-top { top: 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .letterbox-bottom { bottom: 0; border-top: 1px solid rgba(255,255,255,0.06); }
+
+        /* MOSS HUD 界面 */
+        .hud-container {
+            position: absolute;
+            top: 6vh;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 12vh);
+            z-index: 5;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 24px 36px;
+        }
+
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .moss-badge {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(10, 15, 25, 0.65);
+            padding: 8px 18px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 200, 255, 0.25);
+            backdrop-filter: blur(8px);
+        }
+        .moss-eye {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ff2222 35%, #550000 85%);
+            box-shadow: 0 0 10px #ff2222, 0 0 20px #ff0000;
+            animation: pulse-eye 2s infinite ease-in-out;
+        }
+        @keyframes pulse-eye {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.2); opacity: 1; filter: drop-shadow(0 0 6px #ff5555); }
+        }
+        .moss-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #8ed6ff;
+            text-transform: uppercase;
+        }
+        .moss-sub {
+            font-size: 11px;
+            color: rgba(180, 215, 255, 0.6);
+            letter-spacing: 1px;
+        }
+
+        .telemetry-panel {
+            background: rgba(8, 12, 20, 0.7);
+            border: 1px solid rgba(0, 180, 255, 0.2);
+            border-radius: 4px;
+            padding: 12px 18px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 12px;
+            color: #9fe2ff;
+            line-height: 1.6;
+            min-width: 250px;
+            text-align: right;
+            backdrop-filter: blur(8px);
+        }
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .telemetry-val {
+            font-weight: bold;
+            color: #ffffff;
+        }
+        .telemetry-alert {
+            color: #ff3e3e !important;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 剧情字幕与核心台词播报区 */
+        .story-center {
+            align-self: center;
+            width: 100%;
+            max-width: 860px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            pointer-events: none;
+            margin-bottom: 20px;
+        }
+        .chapter-tag {
+            display: inline-block;
+            padding: 4px 14px;
+            background: rgba(255, 45, 45, 0.18);
+            border: 1px solid rgba(255, 75, 75, 0.5);
+            color: #ff7b7b;
+            font-size: 12px;
+            letter-spacing: 3px;
+            font-weight: 600;
+            border-radius: 2px;
+            text-transform: uppercase;
+        }
+        .narrative-title {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(0, 180, 255, 0.6), 0 2px 4px rgba(0,0,0,0.8);
+            transition: all 0.4s ease;
+        }
+        .subtitle-box {
+            background: rgba(5, 8, 14, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 3px solid #00c3ff;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #e6f3ff;
+            max-width: 780px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            transition: all 0.3s ease;
+        }
+        .subtitle-speaker {
+            font-size: 12px;
+            color: #ffab40;
+            letter-spacing: 1.5px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        /* 底部交互控制台 */
+        .bottom-controller {
+            position: absolute;
+            bottom: 6.5vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 72px);
+            max-width: 1100px;
+            z-index: 20;
+            background: rgba(12, 16, 26, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 10px 20px;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+        }
+
+        /* 进度条与章节锚点 */
+        .timeline-container {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+        }
+        .time-display {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 13px;
+            color: #8ed6ff;
+            min-width: 90px;
+        }
+        .timeline-bar-wrapper {
+            position: relative;
+            flex: 1;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 5px;
+            cursor: pointer;
+            overflow: visible;
+        }
+        .timeline-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #0077ff, #00d9ff, #ff4d4d);
+            border-radius: 5px;
+            position: relative;
+            transition: width 0.05s linear;
+        }
+        .timeline-handle {
+            position: absolute;
+            right: -6px;
+            top: -3px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 0 10px #00e1ff;
+            pointer-events: none;
+        }
+        .chapter-nodes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .chapter-node {
+            position: absolute;
+            top: -2px;
+            width: 4px;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.6);
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+        .chapter-node.active {
+            background: #ffaa00;
+            box-shadow: 0 0 6px #ffaa00;
+        }
+
+        /* 控制按钮行 */
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ctrl-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: #e1eeff;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .ctrl-btn:hover {
+            background: rgba(0, 180, 255, 0.22);
+            border-color: #00b4ff;
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(0, 180, 255, 0.3);
+        }
+        .ctrl-btn.active {
+            background: #0077cc;
+            border-color: #00b4ff;
+            color: #fff;
+            box-shadow: 0 0 12px rgba(0, 180, 255, 0.5);
+        }
+        .chapter-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        .ch-btn {
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .ch-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .ch-btn.current {
+            background: rgba(255, 90, 90, 0.25);
+            border-color: #ff5555;
+            color: #ffb8b8;
+            font-weight: 600;
+        }
+
+        /* 引导提示蒙层（初次加载时） */
+        .intro-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 2, 8, 0.88);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(15px);
+            transition: opacity 0.6s ease;
+        }
+        .intro-card {
+            max-width: 620px;
+            background: rgba(14, 20, 32, 0.95);
+            border: 1px solid rgba(0, 195, 255, 0.4);
+            border-radius: 10px;
+            padding: 36px 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 150, 255, 0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+        .intro-title {
+            font-size: 32px;
+            letter-spacing: 5px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffffff 30%, #8ee1ff 70%, #ff5252 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .intro-desc {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #b2c9e2;
+            text-align: justify;
+        }
+        .intro-start-btn {
+            background: linear-gradient(135deg, #0088ff, #00c3ff);
+            color: #fff;
+            border: none;
+            padding: 12px 36px;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 6px 25px rgba(0, 150, 255, 0.5);
+            transition: all 0.25s ease;
+            margin-top: 8px;
+        }
+        .intro-start-btn:hover {
+            transform: scale(1.04);
+            box-shadow: 0 8px 35px rgba(0, 200, 255, 0.8);
+        }
+
+        /* 移动端与小屏幕自适应 */
+        @media (max-width: 768px) {
+            .hud-header { flex-direction: column; gap: 8px; }
+            .telemetry-panel { font-size: 10px; min-width: auto; text-align: left; }
+            .chapter-buttons { display: none; }
+            .narrative-title { font-size: 18px; }
+            .subtitle-box { font-size: 13px; }
+            .bottom-controller { width: calc(100% - 24px); padding: 8px 12px; }
+        }
+    </style>
+    <!-- 引入 Three.js 核心及轨道控制器 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <!-- 3D 渲染画布容器 -->
+    <div id="webgl-canvas"></div>
+
+    <!-- 电影画面遮幅与景深感暗角 -->
+    <div class="letterbox-top"></div>
+    <div class="letterbox-bottom"></div>
+    <div class="cinematic-overlay"></div>
+
+    <!-- MOSS 联合政府数据面板 -->
+    <div class="hud-container">
+        <div class="hud-header">
+            <div class="moss-badge">
+                <div class="moss-eye"></div>
+                <div>
+                    <div class="moss-title">550W / MOSS 空间站中枢</div>
+                    <div class="moss-sub">UNITED EARTH GOVERNMENT · NAVIGATOR SYSTEM</div>
+                </div>
+            </div>
+            <div class="telemetry-panel">
+                <div class="telemetry-row"><span>行星发动机状态</span><span class="telemetry-val" id="hud-engines">10,121 台 (100% 额定)</span></div>
+                <div class="telemetry-row"><span>距木星引力中心</span><span class="telemetry-val" id="hud-dist">1,820,000 km</span></div>
+                <div class="telemetry-row"><span>地木洛希极限距离</span><span class="telemetry-val" id="hud-roche">350,000 km (安全)</span></div>
+                <div class="telemetry-row"><span>地表逃逸幸存概率</span><span class="telemetry-val" id="hud-prob">99.7%</span></div>
+            </div>
+        </div>
+
+        <!-- 剧情播报中心 -->
+        <div class="story-center">
+            <div class="chapter-tag" id="ch-tag">ACT I · 刹车与起航</div>
+            <div class="narrative-title" id="narrative-title">第一阶段：太阳危机与流浪起点</div>
+            <div class="subtitle-box">
+                <div class="subtitle-speaker" id="sub-speaker">联合政府全球广播</div>
+                <div id="sub-text">“太阳即将氦闪，为了人类文明的延续，我们将给地球装上万台行星发动机，带着家园奔向4.2光年外的半人马座。”</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部全功能播放控制器 -->
+    <div class="bottom-controller">
+        <div class="timeline-container">
+            <div class="time-display" id="time-display">00:00 / 02:00</div>
+            <div class="timeline-bar-wrapper" id="timeline-wrapper">
+                <div class="timeline-fill" id="timeline-fill">
+                    <div class="timeline-handle"></div>
+                </div>
+                <div class="chapter-nodes" id="chapter-nodes"></div>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <div class="btn-group">
+                <button class="ctrl-btn" id="btn-play">
+                    <span id="play-icon">▶</span> <span id="play-text">播放</span>
+                </button>
+                <button class="ctrl-btn" id="btn-restart">↺ 重头观看</button>
+                <button class="ctrl-btn" id="btn-cam-mode">🎥 导演视角</button>
+                <button class="ctrl-btn" id="btn-sound">🔊 空间音效: 开</button>
+            </div>
+
+            <div class="chapter-buttons">
+                <button class="ch-btn current" data-ch="0">一、启程出征</button>
+                <button class="ch-btn" data-ch="1">二、木星捕获</button>
+                <button class="ch-btn" data-ch="2">三、绝境火种</button>
+                <button class="ch-btn" data-ch="3">四、春节十二响</button>
+                <button class="ch-btn" data-ch="4">五、点燃木星</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 开场欢迎与音效激活蒙层 -->
+    <div class="intro-modal" id="intro-modal">
+        <div class="intro-card">
+            <div class="intro-title">流浪地球 · 木星引力危机</div>
+            <div style="font-size: 13px; color: #00c3ff; letter-spacing: 2px;">THE WANDERING EARTH · 3D INTERACTIVE CINEMATIC</div>
+            <div class="intro-desc">
+                本程序基于 WebGL / Three.js 打造全三维重演场景，深度复刻电影《流浪地球》核心主线剧情——从地球借助万台行星发动机启程、遭遇木星引力激增捕捉、大气被撕裂抽吸，到人类在绝境中发起“春节十二响”等离子喷流点火、领航员号空间站30万吨燃料引爆木星冲击波脱险的全过程。
+                <br><br>
+                内置由 Web Audio API 即时合成的电影级重低音、警报与引爆震撼音效，点击下方按钮即刻开启沉浸式巡航！
+            </div>
+            <button class="intro-start-btn" id="btn-intro-start">🚀 开启地木交汇航程 (点击播放音效)</button>
+        </div>
+    </div>
+
+    <script>
+    /* ==========================================================================
+       1. 剧情脚本与章节时间轴定义 (总时长 120 秒)
+       ========================================================================== */
+    const TOTAL_DURATION = 120; // 120 seconds
+    const CHAPTERS = [
+        {
+            id: 0,
+            startTime: 0,
+            endTime: 24,
+            tag: "ACT I · 刹车与逃逸时代",
+            title: "离开太阳系：万台行星发动机全功率喷射",
+            speaker: "联合政府播报系统",
+            dialogue: "“地球已停止自转，北半球一万两千座巨型行星推进发动机全负荷运转。等离子蓝色光柱直刺深空，带着我们的母星踏上漫漫两千五百年的流浪航程。”",
+            hudEngines: "10,121 台 (100% 额定)",
+            hudDist: "1,850,000 km",
+            hudRoche: "350,000 km (正常航线)",
+            hudProb: "99.8%",
+            hudAlert: false,
+            camStart: { pos: [0, 8, 48], target: [0, 0, 0] },
+            camEnd: { pos: [-15, 12, 35], target: [0, 1, 0] }
+        },
+        {
+            id: 1,
+            startTime: 24,
+            endTime: 48,
+            tag: "ACT II · 危机！木星引力捕获",
+            title: "地木交会：引力激增与洛希极限危机",
+            speaker: "人工智能 MOSS",
+            dialogue: "“警报：木星引力出现异常激增，超出预定引力弹弓参数。地球已被木星潮汐锁定！大批行星发动机熄火，地表大气正被木星大红斑持续抽吸！”",
+            hudEngines: "2,980 台 (71% 熄火故障)",
+            hudDist: "420,000 km 疾速坠落中",
+            hudRoche: "350,000 km (即将撕裂)",
+            hudProb: "12.4%",
+            hudAlert: true,
+            camStart: { pos: [35, 25, 70], target: [20, 5, -20] },
+            camEnd: { pos: [15, 18, 55], target: [30, 0, -50] }
+        },
+        {
+            id: 2,
+            startTime: 48,
+            endTime: 72,
+            tag: "ACT III · 绝境与火种计划",
+            title: "领航员号空间站：人类生存几率归零",
+            speaker: "MOSS / 领航员空间站",
+            dialogue: "“计算完成：地球将在2小时内坠入洛希极限被彻底撕裂，救援成功率已降为0%。依据《流浪地球法》，领航员号空间站已启动‘火种计划’独自撤离。”",
+            hudEngines: "0 台 (全球重启失败)",
+            hudDist: "365,000 km (逼近极限)",
+            hudRoche: "350,000 km (倒计时37分)",
+            hudProb: "0.00% (绝望判定)",
+            hudAlert: true,
+            camStart: { pos: [6, 14, 18], target: [0, 3, 0] },
+            camEnd: { pos: [3, 8, 12], target: [0, 2, 0] }
+        },
+        {
+            id: 3,
+            startTime: 72,
+            endTime: 96,
+            tag: "ACT IV · 最后的火花：春节十二响",
+            title: "苏拉威西转向发动机：等离子聚变火炬冲天",
+            speaker: "地面CN171-11救援队 / 韩朵朵 全球呼叫",
+            dialogue: "“我们修改了发动机核心程序，执行‘春节十二响’最大过载！引燃地木之间富集的混合气体！但是……火炬喷射高度仅达5000公里，距离木星氢气层还差五千公里！”",
+            hudEngines: "转向发动机极限过载 (300%)",
+            hudDist: "352,000 km (触碰洛希极限)",
+            hudRoche: "距离撕裂仅差 2,000 km",
+            hudProb: "0.01% (点火距离不足)",
+            hudAlert: true,
+            camStart: { pos: [-8, 2, 22], target: [-2, 1, 0] },
+            camEnd: { pos: [-2, 25, 30], target: [20, 15, -40] }
+        },
+        {
+            id: 4,
+            startTime: 96,
+            endTime: 120,
+            tag: "ACT V · 让人类永远保持理智，确实是一种奢求",
+            title: "引爆木星：30万吨燃料与冲击波逃逸",
+            speaker: "航天员 刘培强 中校",
+            dialogue: "“空间站还有30万吨燃料！我点燃空间站，就可以引爆木星！……听得到吗刘启？爸爸要回去工作了。无论结果如何，人类的勇气都将被历史铭记！地球，出发！”",
+            hudEngines: "冲击波推力激增！突破引力锁定",
+            hudDist: "480,000 km (脱离木星捕获)",
+            hudRoche: "脱离危险，航向重置",
+            hudProb: "100% (新征程开启)",
+            hudAlert: false,
+            camStart: { pos: [22, 10, -10], target: [45, 0, -60] },
+            camEnd: { pos: [-20, 22, 60], target: [0, 0, 0] }
+        }
+    ];
+
+    /* ==========================================================================
+       2. Web Audio API 音效与电影级氛围声合成引擎
+       ========================================================================== */
+    class AudioEngine {
+        constructor() {
+            this.ctx = null;
+            this.masterGain = null;
+            this.engineGain = null;
+            this.ambientGain = null;
+            this.isMuted = false;
+            this.initialized = false;
+        }
+
+        init() {
+            if (this.initialized) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+            
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
+            this.masterGain.connect(this.ctx.destination);
+
+            // 1. 行星发动机深沉低频持续音 (Engine Rumble)
+            this.engineGain = this.ctx.createGain();
+            this.engineGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+            this.engineGain.connect(this.masterGain);
+
+            // 用粉噪和超低振荡器模拟发动机雷鸣
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(42, this.ctx.currentTime);
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(110, this.ctx.currentTime);
+
+            osc.connect(filter);
+            filter.connect(this.engineGain);
+            osc.start();
+
+            // 2. 空间深空空灵混响背景 (Deep Space Drone)
+            this.ambientGain = this.ctx.createGain();
+            this.ambientGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+            this.ambientGain.connect(this.masterGain);
+
+            const ambOsc1 = this.ctx.createOscillator();
+            ambOsc1.type = 'sine';
+            ambOsc1.frequency.setValueAtTime(65.41, this.ctx.currentTime); // C2
+            const ambOsc2 = this.ctx.createOscillator();
+            ambOsc2.type = 'sine';
+            ambOsc2.frequency.setValueAtTime(98.00, this.ctx.currentTime); // G2
+
+            const ambFilter = this.ctx.createBiquadFilter();
+            ambFilter.type = 'lowpass';
+            ambFilter.frequency.setValueAtTime(250, this.ctx.currentTime);
+
+            ambOsc1.connect(ambFilter);
+            ambOsc2.connect(ambFilter);
+            ambFilter.connect(this.ambientGain);
+            ambOsc1.start();
+            ambOsc2.start();
+
+            this.initialized = true;
+        }
+
+        toggleMute() {
+            if (!this.initialized) this.init();
+            this.isMuted = !this.isMuted;
+            if (this.masterGain) {
+                this.masterGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.7, this.ctx.currentTime, 0.05);
+            }
+            return !this.isMuted;
+        }
+
+        playWarningKlaxon() {
+            if (!this.initialized || this.isMuted) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(650, now);
+            osc.frequency.linearRampToValueAtTime(400, now + 0.35);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(now);
+            osc.stop(now + 0.45);
+        }
+
+        playPlasmaSurge() {
+            if (!this.initialized || this.isMuted) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const filter = this.ctx.createBiquadFilter();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(80, now);
+            osc.frequency.exponentialRampToValueAtTime(880, now + 1.8);
+
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(200, now);
+            filter.frequency.exponentialRampToValueAtTime(1400, now + 1.8);
+            filter.Q.setValueAtTime(3.5, now);
+
+            gain.gain.setValueAtTime(0.01, now);
+            gain.gain.linearRampToValueAtTime(0.3, now + 1.2);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 2.5);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            osc.start(now);
+            osc.stop(now + 2.6);
+        }
+
+        playMassiveExplosion() {
+            if (!this.initialized || this.isMuted) return;
+            const now = this.ctx.currentTime;
+            
+            // 超深重低音冲击
+            const subOsc = this.ctx.createOscillator();
+            const subGain = this.ctx.createGain();
+            subOsc.type = 'sine';
+            subOsc.frequency.setValueAtTime(120, now);
+            subOsc.frequency.exponentialRampToValueAtTime(22, now + 3.0);
+            subGain.gain.setValueAtTime(0.6, now);
+            subGain.gain.exponentialRampToValueAtTime(0.001, now + 4.5);
+            subOsc.connect(subGain);
+            subGain.connect(this.masterGain);
+            subOsc.start(now);
+            subOsc.stop(now + 4.5);
+
+            // 爆炸白噪波
+            const bufferSize = this.ctx.sampleRate * 2.5;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+
+            const nFilter = this.ctx.createBiquadFilter();
+            nFilter.type = 'lowpass';
+            nFilter.frequency.setValueAtTime(1200, now);
+            nFilter.frequency.exponentialRampToValueAtTime(60, now + 2.8);
+
+            const nGain = this.ctx.createGain();
+            nGain.gain.setValueAtTime(0.4, now);
+            nGain.gain.exponentialRampToValueAtTime(0.01, now + 3.2);
+
+            noise.connect(nFilter);
+            nFilter.connect(nGain);
+            nGain.connect(this.masterGain);
+            noise.start(now);
+            noise.stop(now + 3.3);
+        }
+    }
+
+    const sound = new AudioEngine();
+
+    /* ==========================================================================
+       3. 动态画板与三维纹理生成器 (无任何外部图片依赖，100%单文件自给自足)
+       ========================================================================== */
+    function createJupiterTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 2048;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+
+        // 木星带状气体云纹基础底色渐变
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        const palette = [
+            '#4a2a18', '#b56d3b', '#e2af7b', '#f5e4cd',
+            '#d99b66', '#a14d24', '#662810', '#e3b586',
+            '#f1e1cb', '#ba7442', '#753315', '#f8ebd8'
+        ];
+        for (let i = 0; i < palette.length; i++) {
+            gradient.addColorStop(i / (palette.length - 1), palette[i]);
+        }
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 细微风暴条纹扰动
+        for (let y = 0; y < canvas.height; y += 4) {
+            const alpha = 0.15 + Math.sin(y * 0.08) * 0.1;
+            ctx.fillStyle = (y % 8 === 0) ? `rgba(60, 20, 5, ${alpha})` : `rgba(255, 240, 220, ${alpha})`;
+            ctx.fillRect(0, y, canvas.width, 2);
+        }
+
+        // 湍流波浪
+        for (let i = 0; i < 40; i++) {
+            ctx.beginPath();
+            const yBase = Math.random() * canvas.height;
+            ctx.moveTo(0, yBase);
+            for (let x = 0; x <= canvas.width; x += 30) {
+                const waveY = yBase + Math.sin(x * 0.02 + i) * 12 + Math.cos(x * 0.05) * 8;
+                ctx.lineTo(x, waveY);
+            }
+            ctx.strokeStyle = (i % 2 === 0) ? 'rgba(160, 70, 30, 0.25)' : 'rgba(255, 235, 200, 0.2)';
+            ctx.lineWidth = 12 + Math.random() * 16;
+            ctx.stroke();
+        }
+
+        // 木星大红斑 (Great Red Spot)
+        const spotX = canvas.width * 0.62;
+        const spotY = canvas.height * 0.68;
+        const radiusX = 140;
+        const radiusY = 85;
+
+        const spotGrad = ctx.createRadialGradient(spotX, spotY, 15, spotX, spotY, radiusX);
+        spotGrad.addColorStop(0, '#a31d1d');
+        spotGrad.addColorStop(0.4, '#b83b1d');
+        spotGrad.addColorStop(0.75, '#cc6237');
+        spotGrad.addColorStop(1, 'rgba(180, 100, 50, 0)');
+
+        ctx.save();
+        ctx.translate(spotX, spotY);
+        ctx.rotate(-0.08);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+        ctx.fillStyle = spotGrad;
+        ctx.fill();
+
+        // 大红斑内部漩涡环
+        ctx.beginPath();
+        ctx.ellipse(0, 0, radiusX * 0.65, radiusY * 0.65, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 220, 190, 0.35)';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        ctx.restore();
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        return texture;
+    }
+
+    function createFrozenEarthTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 2048;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+
+        // 冻结海洋：极寒蓝灰与冰面反射
+        ctx.fillStyle = '#102236';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 绘制冰封大陆架轮廓
+        ctx.fillStyle = '#2d4554';
+        for (let i = 0; i < 48; i++) {
+            const cx = Math.random() * canvas.width;
+            const cy = 150 + Math.random() * (canvas.height - 300);
+            const r = 80 + Math.random() * 200;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 白雪与千里冰原覆盖
+        ctx.fillStyle = 'rgba(235, 245, 255, 0.75)';
+        for (let i = 0; i < 90; i++) {
+            const cx = Math.random() * canvas.width;
+            const cy = Math.random() * canvas.height;
+            const r = 40 + Math.random() * 120;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 行星发动机聚集群与地下城出口光斑（点点金蓝色辉光）
+        ctx.fillStyle = '#ffaa33';
+        for (let i = 0; i < 280; i++) {
+            const x = Math.random() * canvas.width;
+            // 主要聚集在北半球与赤道周围
+            const y = 200 + Math.random() * 450;
+            ctx.fillRect(x, y, 3, 3);
+        }
+
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    /* ==========================================================================
+       4. Three.js 3D场景构建、实体搭建与等离子光柱
+       ========================================================================== */
+    const container = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x020308, 0.0018);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 4000);
+    camera.position.set(0, 8, 48);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 280;
+    controls.minDistance = 8;
+    controls.enabled = false; // 初始为导演摄影机自动接管
+
+    // --- 星空背景粒子系统 ---
+    const starCount = 3500;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+        const i3 = i * 3;
+        starPos[i3] = (Math.random() - 0.5) * 2200;
+        starPos[i3 + 1] = (Math.random() - 0.5) * 2200;
+        starPos[i3 + 2] = (Math.random() - 0.5) * 2200;
+        const c = 0.7 + Math.random() * 0.3;
+        starColors[i3] = c;
+        starColors[i3 + 1] = c * 0.9;
+        starColors[i3 + 2] = c * 1.1;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+    const starMat = new THREE.PointsMaterial({ size: 1.6, vertexColors: true, transparent: true, opacity: 0.85 });
+    const stars = new THREE.Points(starGeo, starMat);
+    scene.add(stars);
+
+    // --- 光照体系 ---
+    const ambientLight = new THREE.AmbientLight(0x1a2638, 1.2);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.5);
+    sunLight.position.set(-180, 70, 120);
+    scene.add(sunLight);
+
+    // 来自木星大红斑与行星发动机的互映环境光
+    const jupiterGlowLight = new THREE.PointLight(0xff7733, 2.8, 450);
+    jupiterGlowLight.position.set(70, 10, -90);
+    scene.add(jupiterGlowLight);
+
+    // --- 实体1：地球系统 ---
+    const earthGroup = new THREE.Group();
+    scene.add(earthGroup);
+
+    const earthRadius = 6.0;
+    const earthGeo = new THREE.SphereGeometry(earthRadius, 64, 64);
+    const earthMat = new THREE.MeshStandardMaterial({
+        map: createFrozenEarthTexture(),
+        roughness: 0.75,
+        metalness: 0.15,
+        bumpScale: 0.05
+    });
+    const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+    earthGroup.add(earthMesh);
+
+    // 地球大气层光晕
+    const atmosphereGeo = new THREE.SphereGeometry(earthRadius * 1.035, 64, 64);
+    const atmosphereMat = new THREE.MeshBasicMaterial({
+        color: 0x4fa8ff,
+        transparent: true,
+        opacity: 0.22,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending
+    });
+    const atmosphereMesh = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+    earthGroup.add(atmosphereMesh);
+
+    // --- 行星发动机阵列与等离子光柱 ---
+    const engineCount = 42;
+    const enginePlasmaBeams = [];
+    const beamGeo = new THREE.CylinderGeometry(0.08, 0.45, 12, 16, 1, true);
+    beamGeo.translate(0, 6, 0); // 底部对齐发动机口
+
+    const beamMat = new THREE.MeshBasicMaterial({
+        color: 0x00d9ff,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide
+    });
+
+    const engineBaseGeo = new THREE.ConeGeometry(0.32, 0.5, 12);
+    const engineBaseMat = new THREE.MeshStandardMaterial({ color: 0x44444c, metalness: 0.8, roughness: 0.3 });
+
+    for (let i = 0; i < engineCount; i++) {
+        // 分布在北半球与赤道周围
+        const phi = Math.acos(0.08 + Math.random() * 0.85); // 纬度
+        const theta = Math.random() * Math.PI * 2;         // 经度
+
+        const x = earthRadius * Math.sin(phi) * Math.cos(theta);
+        const y = earthRadius * Math.cos(phi);
+        const z = earthRadius * Math.sin(phi) * Math.sin(theta);
+
+        const normal = new THREE.Vector3(x, y, z).normalize();
+
+        // 发动机机体山脉基座
+        const baseMesh = new THREE.Mesh(engineBaseGeo, engineBaseMat);
+        baseMesh.position.set(x, y, z);
+        baseMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+        earthGroup.add(baseMesh);
+
+        // 冲天等离子蓝色光柱
+        const beamMesh = new THREE.Mesh(beamGeo, beamMat.clone());
+        beamMesh.position.set(x, y, z);
+        beamMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+        earthGroup.add(beamMesh);
+
+        enginePlasmaBeams.push({
+            mesh: beamMesh,
+            origScaleY: 0.9 + Math.random() * 0.4,
+            speed: 4 + Math.random() * 8
+        });
+    }
+
+    // --- 赤道苏拉威西转向发动机 (春节十二响点火主角) ---
+    const sulawesiBase = new THREE.Mesh(new THREE.ConeGeometry(0.7, 0.9, 16), new THREE.MeshStandardMaterial({ color: 0x222225 }));
+    sulawesiBase.position.set(0, 0.4, earthRadius);
+    sulawesiBase.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+    earthGroup.add(sulawesiBase);
+
+    // 超级等离子火炬 (春节十二响超长光柱)
+    const giantBeamGeo = new THREE.CylinderGeometry(0.18, 1.4, 55, 24, 1, true);
+    giantBeamGeo.translate(0, 27.5, 0);
+    const giantBeamMat = new THREE.MeshBasicMaterial({
+        color: 0x00f0ff,
+        transparent: true,
+        opacity: 0.0, // 初始不激活
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide
+    });
+    const giantFlameBeam = new THREE.Mesh(giantBeamGeo, giantBeamMat);
+    giantFlameBeam.position.set(0, 0.4, earthRadius);
+    // 指向木星方向
+    giantFlameBeam.rotation.x = Math.PI / 2;
+    earthGroup.add(giantFlameBeam);
+
+    // --- 实体2：木星系统 (巨大的气体行星，大红斑注视着地球) ---
+    const jupiterGroup = new THREE.Group();
+    jupiterGroup.position.set(90, 15, -120);
+    scene.add(jupiterGroup);
+
+    const jupiterRadius = 38.0; // 地球半径的6倍以上，宏大体量对比
+    const jupiterGeo = new THREE.SphereGeometry(jupiterRadius, 64, 64);
+    const jupiterMat = new THREE.MeshStandardMaterial({
+        map: createJupiterTexture(),
+        roughness: 0.9,
+        metalness: 0.05
+    });
+    const jupiterMesh = new THREE.Mesh(jupiterGeo, jupiterMat);
+    jupiterGroup.add(jupiterMesh);
+
+    // 木星外围大气晕染
+    const jupiterAtmoGeo = new THREE.SphereGeometry(jupiterRadius * 1.025, 64, 64);
+    const jupiterAtmoMat = new THREE.MeshBasicMaterial({
+        color: 0xd98236,
+        transparent: true,
+        opacity: 0.18,
+        side: THREE.BackSide,
+        blending: THREE.AdditiveBlending
+    });
+    const jupiterAtmo = new THREE.Mesh(jupiterAtmoGeo, jupiterAtmoMat);
+    jupiterGroup.add(jupiterAtmo);
+
+    // --- 地木大气抽吸流桥 (Atmospheric Siphoning Bridge) ---
+    const siphoningParticleCount = 1800;
+    const siphoningGeo = new THREE.BufferGeometry();
+    const siphoningPos = new Float32Array(siphoningParticleCount * 3);
+    const siphoningProgress = new Float32Array(siphoningParticleCount);
+    const siphoningOffsets = new Float32Array(siphoningParticleCount * 2);
+
+    for (let i = 0; i < siphoningParticleCount; i++) {
+        siphoningProgress[i] = Math.random();
+        siphoningOffsets[i * 2] = (Math.random() - 0.5) * 8;
+        siphoningOffsets[i * 2 + 1] = (Math.random() - 0.5) * 8;
+    }
+    siphoningGeo.setAttribute('position', new THREE.BufferAttribute(siphoningPos, 3));
+    const siphoningMat = new THREE.PointsMaterial({
+        color: 0x4fc3f7,
+        size: 1.3,
+        transparent: true,
+        opacity: 0.0, // 初始第1阶段未进入木星范围时不显现
+        blending: THREE.AdditiveBlending
+    });
+    const siphoningParticles = new THREE.Points(siphoningGeo, siphoningMat);
+    scene.add(siphoningParticles);
+
+    // --- 实体3：领航员号国际空间站 (Navigator Space Station) ---
+    const stationGroup = new THREE.Group();
+    scene.add(stationGroup);
+
+    // 旋转重力离心环 (Centrifuge Ring)
+    const ringGeo = new THREE.TorusGeometry(1.6, 0.1, 16, 48);
+    const stationMat = new THREE.MeshStandardMaterial({ color: 0xd0d8e2, metalness: 0.9, roughness: 0.25 });
+    const stationRing = new THREE.Mesh(ringGeo, stationMat);
+    stationGroup.add(stationRing);
+
+    // 空间站轴心主轴与推进舱
+    const coreGeo = new THREE.CylinderGeometry(0.22, 0.28, 4.2, 16);
+    const coreMesh = new THREE.Mesh(coreGeo, stationMat);
+    coreMesh.rotation.x = Math.PI / 2;
+    stationGroup.add(coreMesh);
+
+    // 太阳能电池翼阵列
+    const solarGeo = new THREE.BoxGeometry(3.6, 0.04, 0.7);
+    const solarMat = new THREE.MeshStandardMaterial({ color: 0x113366, metalness: 0.7, roughness: 0.1 });
+    const solar1 = new THREE.Mesh(solarGeo, solarMat);
+    solar1.position.set(0, 0, 1.2);
+    stationGroup.add(solar1);
+
+    // 30万吨燃料引爆点光芒精灵
+    const stationGlow = new THREE.PointLight(0xff5533, 0, 80);
+    stationGroup.add(stationGlow);
+
+    // --- 实体4：木星引爆宏大火云与冲击波圈 (Ignition Shockwave) ---
+    const shockwaveGeo = new THREE.RingGeometry(0.1, 4.0, 64);
+    const shockwaveMat = new THREE.MeshBasicMaterial({
+        color: 0xff4d15,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending
+    });
+    const shockwaveMesh = new THREE.Mesh(shockwaveGeo, shockwaveMat);
+    shockwaveMesh.position.set(65, 12, -85);
+    shockwaveMesh.lookAt(earthGroup.position);
+    scene.add(shockwaveMesh);
+
+    // 聚变火球核心
+    const fireballGeo = new THREE.SphereGeometry(3, 32, 32);
+    const fireballMat = new THREE.MeshBasicMaterial({
+        color: 0xfff0aa,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending
+    });
+    const fireballMesh = new THREE.Mesh(fireballGeo, fireballMat);
+    fireballMesh.position.copy(shockwaveMesh.position);
+    scene.add(fireballMesh);
+
+    /* ==========================================================================
+       5. 播放状态机与时间控制系统
+       ========================================================================== */
+    let currentTime = 0;
+    let isPlaying = false;
+    let isDirectorCam = true;
+    let lastClock = performance.now();
+    let prevChapterId = -1;
+
+    // UI 元素引用
+    const timeDisplay = document.getElementById('time-display');
+    const timelineFill = document.getElementById('timeline-fill');
+    const timelineWrapper = document.getElementById('timeline-wrapper');
+    const chapterNodesContainer = document.getElementById('chapter-nodes');
+    const btnPlay = document.getElementById('btn-play');
+    const playIcon = document.getElementById('play-icon');
+    const playText = document.getElementById('play-text');
+    const btnRestart = document.getElementById('btn-restart');
+    const btnCamMode = document.getElementById('btn-cam-mode');
+    const btnSound = document.getElementById('btn-sound');
+    const introModal = document.getElementById('intro-modal');
+    const btnIntroStart = document.getElementById('btn-intro-start');
+
+    const chTag = document.getElementById('ch-tag');
+    const narrativeTitle = document.getElementById('narrative-title');
+    const subSpeaker = document.getElementById('sub-speaker');
+    const subText = document.getElementById('sub-text');
+
+    const hudEngines = document.getElementById('hud-engines');
+    const hudDist = document.getElementById('hud-dist');
+    const hudRoche = document.getElementById('hud-roche');
+    const hudProb = document.getElementById('hud-prob');
+
+    const chBtns = document.querySelectorAll('.ch-btn');
+
+    // 渲染时间轴章节锚点
+    CHAPTERS.forEach((ch, idx) => {
+        const node = document.createElement('div');
+        node.className = `chapter-node ${idx === 0 ? 'active' : ''}`;
+        node.style.left = `${(ch.startTime / TOTAL_DURATION) * 100}%`;
+        chapterNodesContainer.appendChild(node);
+    });
+
+    function getCurrentChapter(t) {
+        for (let i = CHAPTERS.length - 1; i >= 0; i--) {
+            if (t >= CHAPTERS[i].startTime) return CHAPTERS[i];
+        }
+        return CHAPTERS[0];
+    }
+
+    function formatTime(s) {
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    }
+
+    function updateUI(chapter, t) {
+        timeDisplay.textContent = `${formatTime(t)} / ${formatTime(TOTAL_DURATION)}`;
+        timelineFill.style.width = `${(t / TOTAL_DURATION) * 100}%`;
+
+        // 仅在跨章节时切换字幕与播放提示音
+        if (chapter.id !== prevChapterId) {
+            chTag.textContent = chapter.tag;
+            narrativeTitle.textContent = chapter.title;
+            subSpeaker.textContent = chapter.speaker;
+            subText.textContent = chapter.dialogue;
+
+            hudEngines.textContent = chapter.hudEngines;
+            hudDist.textContent = chapter.hudDist;
+            hudRoche.textContent = chapter.hudRoche;
+            hudProb.textContent = chapter.hudProb;
+
+            if (chapter.hudAlert) {
+                hudRoche.classList.add('telemetry-alert');
+                hudProb.classList.add('telemetry-alert');
+                sound.playWarningKlaxon();
+            } else {
+                hudRoche.classList.remove('telemetry-alert');
+                hudProb.classList.remove('telemetry-alert');
+            }
+
+            // 更新章节按钮高亮
+            chBtns.forEach((b, i) => {
+                if (i === chapter.id) b.classList.add('current');
+                else b.classList.remove('current');
+            });
+
+            // 触发特殊关键节点声效
+            if (chapter.id === 3) sound.playPlasmaSurge();
+            if (chapter.id === 4) sound.playMassiveExplosion();
+
+            prevChapterId = chapter.id;
+        }
+    }
+
+    function seekTo(targetTime) {
+        currentTime = Math.max(0, Math.min(targetTime, TOTAL_DURATION));
+        const ch = getCurrentChapter(currentTime);
+        prevChapterId = -1; // 强制刷新文本
+        updateUI(ch, currentTime);
+    }
+
+    // --- 交互事件绑定 ---
+    btnPlay.addEventListener('click', () => {
+        sound.init();
+        isPlaying = !isPlaying;
+        playIcon.textContent = isPlaying ? '⏸' : '▶';
+        playText.textContent = isPlaying ? '暂停' : '播放';
+    });
+
+    btnRestart.addEventListener('click', () => {
+        seekTo(0);
+        if (!isPlaying) {
+            isPlaying = true;
+            playIcon.textContent = '⏸';
+            playText.textContent = '暂停';
+        }
+    });
+
+    btnCamMode.addEventListener('click', () => {
+        isDirectorCam = !isDirectorCam;
+        controls.enabled = !isDirectorCam;
+        if (isDirectorCam) {
+            btnCamMode.textContent = '🎥 导演视角';
+            btnCamMode.classList.remove('active');
+        } else {
+            btnCamMode.textContent = '🕹️ 自由视点 (拖拽旋转)';
+            btnCamMode.classList.add('active');
+        }
+    });
+
+    btnSound.addEventListener('click', () => {
+        const active = sound.toggleMute();
+        btnSound.textContent = active ? '🔊 空间音效: 开' : '🔇 空间音效: 关';
+    });
+
+    timelineWrapper.addEventListener('click', (e) => {
+        const rect = timelineWrapper.getBoundingClientRect();
+        const clickRatio = (e.clientX - rect.left) / rect.width;
+        seekTo(clickRatio * TOTAL_DURATION);
+    });
+
+    chBtns.forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            const chIndex = parseInt(btn.getAttribute('data-ch'));
+            seekTo(CHAPTERS[chIndex].startTime + 0.1);
+        });
+    });
+
+    btnIntroStart.addEventListener('click', () => {
+        sound.init();
+        introModal.style.opacity = '0';
+        setTimeout(() => {
+            introModal.style.display = 'none';
+        }, 600);
+        isPlaying = true;
+        playIcon.textContent = '⏸';
+        playText.textContent = '暂停';
+    });
+
+    /* ==========================================================================
+       6. 主动画循环：物理运动、相机插值与剧情演出
+       ========================================================================== */
+    function lerp(start, end, amt) {
+        return (1 - amt) * start + amt * end;
+    }
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        const delta = clock.getDelta();
+        const elapsedTime = clock.getElapsedTime();
+
+        // 推进时间轴
+        if (isPlaying) {
+            currentTime += delta;
+            if (currentTime >= TOTAL_DURATION) {
+                currentTime = TOTAL_DURATION;
+                isPlaying = false;
+                playIcon.textContent = '▶';
+                playText.textContent = '播放完毕';
+            }
+        }
+
+        const curCh = getCurrentChapter(currentTime);
+        const chProgress = Math.min(1, Math.max(0, (currentTime - curCh.startTime) / (curCh.endTime - curCh.startTime)));
+
+        // 1. 地球自转与公转微动
+        earthMesh.rotation.y = elapsedTime * 0.04;
+        stationRing.rotation.z += 0.015; // 空间站自转离心轮
+
+        // 2. 发动机喷流脉动
+        const enginePower = (curCh.id === 1 || curCh.id === 2) ? 0.28 : 1.0;
+        enginePlasmaBeams.forEach((beam, idx) => {
+            const scalePulse = Math.sin(elapsedTime * beam.speed + idx) * 0.15;
+            beam.mesh.scale.set(1, (beam.origScaleY + scalePulse) * enginePower, 1);
+            beam.mesh.material.opacity = (0.55 + scalePulse * 0.2) * enginePower;
+        });
+
+        // 3. 核心剧情状态机演出分发
+        // A. 航行推进与地木间距变化
+        if (curCh.id === 0) {
+            // 第一幕：刚启程远离太阳，木星在极其遥远的前方隐约可见
+            jupiterGroup.position.set(280, 50, -380);
+            earthGroup.position.set(0, 0, 0);
+            stationGroup.position.set(-8, 3, 14);
+            siphoningMat.opacity = 0;
+            giantBeamMat.opacity = 0;
+            fireballMat.opacity = 0;
+            shockwaveMat.opacity = 0;
+        } else if (curCh.id === 1) {
+            // 第二幕：地木引力捕获，地球逼近木星，大气开始被捕获抽吸
+            const p = chProgress;
+            jupiterGroup.position.set(lerp(280, 95, p), lerp(50, 20, p), lerp(-380, -125, p));
+            earthGroup.position.set(0, 0, 0);
+            stationGroup.position.set(8, 6, 8);
+            siphoningMat.opacity = lerp(0.0, 0.75, p);
+            giantBeamMat.opacity = 0;
+        } else if (curCh.id === 2) {
+            // 第三幕：绝境危机，洛希极限撕裂边缘，领航员空间站视角
+            jupiterGroup.position.set(95, 20, -125);
+            stationGroup.position.set(lerp(8, 2, chProgress), lerp(6, 4, chProgress), lerp(8, 5, chProgress));
+            siphoningMat.opacity = 0.85;
+            giantBeamMat.opacity = 0;
+        } else if (curCh.id === 3) {
+            // 第四幕：春节十二响，苏拉威西巨型等离子火柱喷射
+            giantBeamMat.opacity = Math.min(0.9, chProgress * 1.5);
+            const beamPulse = 1 + Math.sin(elapsedTime * 25) * 0.08;
+            giantFlameBeam.scale.set(beamPulse, beamPulse, beamPulse);
+            siphoningMat.opacity = 0.9;
+            stationGroup.position.set(15, 8, -15);
+        } else if (curCh.id === 4) {
+            // 第五幕：空间站冲入火柱引发大爆炸，冲击波击退地球！
+            const p = chProgress;
+            // 空间站航向引爆点
+            if (p < 0.3) {
+                const subP = p / 0.3;
+                stationGroup.position.set(lerp(15, 45, subP), lerp(8, 12, subP), lerp(-15, -60, subP));
+                stationGroup.scale.setScalar(1 - subP * 0.6);
+                stationGlow.intensity = subP * 12;
+            } else {
+                stationGroup.scale.setScalar(0.001); // 空间站融入聚变火海
+            }
+
+            // 引爆火球与巨大冲击波展开
+            if (p > 0.25) {
+                const explP = (p - 0.25) / 0.75;
+                fireballMat.opacity = Math.max(0, (1 - explP) * 0.95);
+                fireballMesh.scale.setScalar(1 + explP * 18);
+
+                shockwaveMat.opacity = Math.max(0, (1 - explP * 0.8) * 0.85);
+                shockwaveMesh.scale.setScalar(1 + explP * 42);
+
+                // 地球被强烈冲击波推离木星！重获逃逸速度
+                earthGroup.position.z = lerp(0, 45, explP);
+                earthGroup.position.x = lerp(0, -25, explP);
+            }
+        }
+
+        // 4. 大气抽吸粒子动画计算 (从地球朝向木星大红斑漂流)
+        if (siphoningMat.opacity > 0.05) {
+            const positions = siphoningGeo.attributes.position.array;
+            const earthPos = earthGroup.position;
+            const jupPos = jupiterGroup.position;
+
+            for (let i = 0; i < siphoningParticleCount; i++) {
+                siphoningProgress[i] = (siphoningProgress[i] + delta * 0.35) % 1.0;
+                const prg = siphoningProgress[i];
+
+                // 三维样条弧线插值：从地球赤道延伸至木星大红斑
+                const midX = (earthPos.x + jupPos.x) * 0.5 + siphoningOffsets[i * 2] * (1 - prg);
+                const midY = (earthPos.y + jupPos.y) * 0.5 + 15 * Math.sin(prg * Math.PI) + siphoningOffsets[i * 2 + 1];
+                const midZ = (earthPos.z + jupPos.z) * 0.5;
+
+                const t1 = 1 - prg;
+                const px = t1 * t1 * earthPos.x + 2 * t1 * prg * midX + prg * prg * jupPos.x;
+                const py = t1 * t1 * (earthPos.y + 2) + 2 * t1 * prg * midY + prg * prg * jupPos.y;
+                const pz = t1 * t1 * earthPos.z + 2 * t1 * prg * midZ + prg * prg * jupPos.z;
+
+                positions[i * 3] = px;
+                positions[i * 3 + 1] = py;
+                positions[i * 3 + 2] = pz;
+            }
+            siphoningGeo.attributes.position.needsUpdate = true;
+        }
+
+        // 5. 摄影机插值运镜 (导演模式)
+        if (isDirectorCam) {
+            const cs = curCh.camStart;
+            const ce = curCh.camEnd;
+            const smoothT = chProgress * chProgress * (3 - 2 * chProgress); // 平滑 S 曲线
+
+            camera.position.x = lerp(cs.pos[0], ce.pos[0], smoothT);
+            camera.position.y = lerp(cs.pos[1], ce.pos[1], smoothT);
+            camera.position.z = lerp(cs.pos[2], ce.pos[2], smoothT);
+
+            const tx = lerp(cs.target[0], ce.target[0], smoothT);
+            const ty = lerp(cs.target[1], ce.target[1], smoothT);
+            const tz = lerp(cs.target[2], ce.target[2], smoothT);
+            camera.lookAt(tx, ty, tz);
+        } else {
+            controls.update();
+        }
+
+        updateUI(curCh, currentTime);
+        renderer.render(scene, camera);
+    }
+
+    // 窗口尺寸缩放自适应
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // 启动动画管线
+    animate();
+    </script>
+</body>
+</html>
